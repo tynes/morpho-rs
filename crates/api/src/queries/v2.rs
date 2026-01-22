@@ -2,9 +2,11 @@
 
 use graphql_client::GraphQLQuery;
 
+use crate::types::scalars::FlexBigInt;
+
 /// Custom scalar type mappings for GraphQL.
 pub type Address = String;
-pub type BigInt = String;
+pub type BigInt = FlexBigInt;
 pub type MarketId = String;
 pub type HexString = String;
 

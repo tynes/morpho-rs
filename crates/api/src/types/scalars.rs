@@ -1,7 +1,7 @@
 //! GraphQL scalar type conversions to Rust/alloy types.
 
 use alloy_primitives::{Address, U256};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::str::FromStr;
 
 /// GraphQL Address scalar type (represented as String in GraphQL).
@@ -9,6 +9,81 @@ pub type GqlAddress = String;
 
 /// GraphQL BigInt scalar type (represented as String in GraphQL).
 pub type GqlBigInt = String;
+
+/// Flexible BigInt type that can deserialize from either a string or integer.
+/// The Morpho GraphQL API sometimes returns BigInt as integers instead of strings.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct FlexBigInt(pub String);
+
+impl Serialize for FlexBigInt {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for FlexBigInt {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct FlexBigIntVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for FlexBigIntVisitor {
+            type Value = FlexBigInt;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a string or integer")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(FlexBigInt(value.to_string()))
+            }
+
+            fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(FlexBigInt(value))
+            }
+
+            fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(FlexBigInt(value.to_string()))
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Ok(FlexBigInt(value.to_string()))
+            }
+        }
+
+        deserializer.deserialize_any(FlexBigIntVisitor)
+    }
+}
+
+impl std::ops::Deref for FlexBigInt {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<str> for FlexBigInt {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
 
 /// Parse a GraphQL Address string into an alloy Address.
 pub fn parse_address(s: &str) -> Option<Address> {
