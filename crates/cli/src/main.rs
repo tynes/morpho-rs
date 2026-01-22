@@ -8,7 +8,7 @@ use anyhow::Result;
 use clap::Parser;
 
 use cli::{Cli, Commands, VaultV1Subcommand, VaultV2Subcommand};
-use commands::{run_v1_info, run_v1_list, run_v2_info, run_v2_list};
+use commands::{run_positions, run_v1_info, run_v1_list, run_v2_info, run_v2_list};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -31,6 +31,9 @@ async fn main() -> Result<()> {
                 run_v2_info(&args, cli.format).await?;
             }
         },
+        Commands::Positions(args) => {
+            run_positions(&args, cli.format).await?;
+        }
     }
 
     Ok(())

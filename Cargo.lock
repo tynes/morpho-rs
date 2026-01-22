@@ -109,6 +109,7 @@ name = "api"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "futures",
  "graphql_client",
  "reqwest 0.12.28",
  "serde",
@@ -1672,6 +1673,7 @@ dependencies = [
 name = "morpho"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "anyhow",
  "api",
  "clap",

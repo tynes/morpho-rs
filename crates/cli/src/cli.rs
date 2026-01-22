@@ -32,6 +32,9 @@ pub enum Commands {
         #[command(subcommand)]
         subcommand: VaultV2Subcommand,
     },
+    /// Query user vault positions (V1 and V2)
+    #[command(name = "positions")]
+    Positions(PositionsArgs),
 }
 
 #[derive(Subcommand, Debug)]
@@ -77,6 +80,16 @@ pub struct InfoArgs {
     /// Chain the vault is on (default: ethereum)
     #[arg(long, default_value = "ethereum")]
     pub chain: ChainArg,
+}
+
+#[derive(Parser, Debug)]
+pub struct PositionsArgs {
+    /// User wallet address to query positions for
+    pub address: String,
+
+    /// Chain to query (omit to query all chains)
+    #[arg(long)]
+    pub chain: Option<ChainArg>,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, Default)]

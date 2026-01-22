@@ -401,8 +401,23 @@ impl VaultClient {
             .ok_or_else(|| ApiError::Parse("No data in response".to_string()))
     }
 
-    /// Get all vault positions (V1 and V2) for a user on a specific chain.
+    /// Get all vault positions (V1 and V2) for a user.
+    ///
+    /// If `chain` is `Some`, queries only that chain.
+    /// If `chain` is `None`, queries all supported chains and aggregates results.
     pub async fn get_user_vault_positions(
+        &self,
+        address: &str,
+        chain: Option<Chain>,
+    ) -> Result<UserVaultPositions> {
+        match chain {
+            Some(c) => self.get_user_vault_positions_single_chain(address, c).await,
+            None => self.get_user_vault_positions_all_chains(address).await,
+        }
+    }
+
+    /// Get vault positions for a user on a single chain.
+    async fn get_user_vault_positions_single_chain(
         &self,
         address: &str,
         chain: Chain,
@@ -434,6 +449,53 @@ impl VaultClient {
                 .map_err(|_| ApiError::Parse("Invalid address".to_string()))?,
             vault_positions,
             vault_v2_positions,
+        })
+    }
+
+    /// Get vault positions for a user across all chains.
+    async fn get_user_vault_positions_all_chains(
+        &self,
+        address: &str,
+    ) -> Result<UserVaultPositions> {
+        use futures::future::join_all;
+
+        // Filter chains to those with IDs that fit in GraphQL Int (32-bit signed)
+        let valid_chains: Vec<_> = Chain::all()
+            .iter()
+            .filter(|chain| chain.id() <= i32::MAX as i64)
+            .copied()
+            .collect();
+
+        let futures: Vec<_> = valid_chains
+            .iter()
+            .map(|chain| self.get_user_vault_positions_single_chain(address, *chain))
+            .collect();
+
+        let results = join_all(futures).await;
+
+        let parsed_address = address
+            .parse()
+            .map_err(|_| ApiError::Parse("Invalid address".to_string()))?;
+
+        let mut all_v1_positions = Vec::new();
+        let mut all_v2_positions = Vec::new();
+
+        for result in results {
+            match result {
+                Ok(positions) => {
+                    all_v1_positions.extend(positions.vault_positions);
+                    all_v2_positions.extend(positions.vault_v2_positions);
+                }
+                // Ignore "No results" errors - user just has no positions on that chain
+                Err(ApiError::GraphQL(msg)) if msg.contains("No results") => continue,
+                Err(e) => return Err(e),
+            }
+        }
+
+        Ok(UserVaultPositions {
+            address: parsed_address,
+            vault_positions: all_v1_positions,
+            vault_v2_positions: all_v2_positions,
         })
     }
 
