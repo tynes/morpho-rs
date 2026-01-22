@@ -1,0 +1,127 @@
+query GetVaultsV1(
+  $first: Int
+  $skip: Int
+  $where: VaultFilters
+) {
+  vaults(first: $first, skip: $skip, where: $where) {
+    items {
+      id
+      address
+      name
+      symbol
+      listed
+      featured
+      whitelisted
+      chain {
+        id
+        network
+      }
+      asset {
+        address
+        symbol
+        decimals
+        name
+        priceUsd
+      }
+      state {
+        totalAssets
+        totalAssetsUsd
+        totalSupply
+        apy
+        netApy
+        sharePrice
+        fee
+        timelock
+        curator
+        owner
+        guardian
+        allocation {
+          market {
+            uniqueKey
+            loanAsset {
+              address
+              symbol
+            }
+            collateralAsset {
+              address
+              symbol
+            }
+          }
+          supplyAssets
+          supplyAssetsUsd
+          supplyCap
+        }
+      }
+      allocators {
+        address
+      }
+      warnings {
+        type
+        level
+      }
+    }
+    pageInfo {
+      count
+      countTotal
+    }
+  }
+}
+
+query GetVaultV1ByAddress($address: String!, $chainId: Int!) {
+  vaultByAddress(address: $address, chainId: $chainId) {
+    id
+    address
+    name
+    symbol
+    listed
+    featured
+    whitelisted
+    chain {
+      id
+      network
+    }
+    asset {
+      address
+      symbol
+      decimals
+      name
+      priceUsd
+    }
+    state {
+      totalAssets
+      totalAssetsUsd
+      totalSupply
+      apy
+      netApy
+      sharePrice
+      fee
+      timelock
+      curator
+      owner
+      guardian
+      allocation {
+        market {
+          uniqueKey
+          loanAsset {
+            address
+            symbol
+          }
+          collateralAsset {
+            address
+            symbol
+          }
+        }
+        supplyAssets
+        supplyAssetsUsd
+        supplyCap
+      }
+    }
+    allocators {
+      address
+    }
+    warnings {
+      type
+      level
+    }
+  }
+}

@@ -1,0 +1,133 @@
+query GetVaultsV2(
+  $first: Int
+  $skip: Int
+  $where: VaultV2sFilters
+) {
+  vaultV2s(first: $first, skip: $skip, where: $where) {
+    items {
+      id
+      address
+      name
+      symbol
+      listed
+      whitelisted
+      chain {
+        id
+        network
+      }
+      asset {
+        address
+        symbol
+        decimals
+        name
+        priceUsd
+      }
+      curator {
+        address
+      }
+      owner {
+        address
+      }
+      totalAssets
+      totalAssetsUsd
+      totalSupply
+      sharePrice
+      performanceFee
+      managementFee
+      avgApy
+      avgNetApy
+      apy
+      netApy
+      liquidity
+      liquidityUsd
+      adapters {
+        items {
+          __typename
+          id
+          address
+          type
+          assets
+          assetsUsd
+        }
+      }
+      rewards {
+        asset {
+          address
+          symbol
+        }
+        supplyApr
+        yearlySupplyTokens
+      }
+      warnings {
+        type
+        level
+      }
+    }
+    pageInfo {
+      count
+      countTotal
+    }
+  }
+}
+
+query GetVaultV2ByAddress($address: String!, $chainId: Int!) {
+  vaultV2ByAddress(address: $address, chainId: $chainId) {
+    id
+    address
+    name
+    symbol
+    listed
+    whitelisted
+    chain {
+      id
+      network
+    }
+    asset {
+      address
+      symbol
+      decimals
+      name
+      priceUsd
+    }
+    curator {
+      address
+    }
+    owner {
+      address
+    }
+    totalAssets
+    totalAssetsUsd
+    totalSupply
+    sharePrice
+    performanceFee
+    managementFee
+    avgApy
+    avgNetApy
+    apy
+    netApy
+    liquidity
+    liquidityUsd
+    adapters {
+      items {
+        __typename
+        id
+        address
+        type
+        assets
+        assetsUsd
+      }
+    }
+    rewards {
+      asset {
+        address
+        symbol
+      }
+      supplyApr
+      yearlySupplyTokens
+    }
+    warnings {
+      type
+      level
+    }
+  }
+}

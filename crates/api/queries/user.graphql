@@ -1,0 +1,128 @@
+query GetUserVaultPositions($address: String!, $chainId: Int!) {
+  userByAddress(address: $address, chainId: $chainId) {
+    id
+    address
+    vaultPositions {
+      id
+      shares
+      assets
+      assetsUsd
+      vault {
+        address
+        name
+        symbol
+      }
+      state {
+        shares
+        assets
+        assetsUsd
+        pnl
+        pnlUsd
+        roe
+        roeUsd
+      }
+    }
+    vaultV2Positions {
+      id
+      shares
+      assets
+      assetsUsd
+      pnl
+      pnlUsd
+      roe
+      roeUsd
+      vault {
+        address
+        name
+        symbol
+      }
+    }
+  }
+}
+
+query GetUserAccountOverview($address: String!, $chainId: Int!) {
+  userByAddress(address: $address, chainId: $chainId) {
+    id
+    address
+    state {
+      vaultsPnlUsd
+      vaultsRoeUsd
+      vaultsAssetsUsd
+      vaultV2sPnlUsd
+      vaultV2sRoeUsd
+      vaultV2sAssetsUsd
+      marketsPnlUsd
+      marketsRoeUsd
+      marketsSupplyPnlUsd
+      marketsSupplyRoeUsd
+      marketsBorrowPnlUsd
+      marketsBorrowRoeUsd
+      marketsCollateralPnlUsd
+      marketsCollateralRoeUsd
+      marketsMarginPnlUsd
+      marketsMarginRoeUsd
+      marketsCollateralUsd
+      marketsSupplyAssetsUsd
+      marketsBorrowAssetsUsd
+      marketsMarginUsd
+    }
+    vaultPositions {
+      id
+      shares
+      assets
+      assetsUsd
+      vault {
+        address
+        name
+        symbol
+      }
+      state {
+        shares
+        assets
+        assetsUsd
+        pnl
+        pnlUsd
+        roe
+        roeUsd
+      }
+    }
+    vaultV2Positions {
+      id
+      shares
+      assets
+      assetsUsd
+      pnl
+      pnlUsd
+      roe
+      roeUsd
+      vault {
+        address
+        name
+        symbol
+      }
+    }
+    marketPositions {
+      id
+      supplyShares
+      supplyAssets
+      supplyAssetsUsd
+      borrowShares
+      borrowAssets
+      borrowAssetsUsd
+      collateral
+      collateralUsd
+      healthFactor
+      market {
+        uniqueKey
+        loanAsset {
+          address
+          symbol
+        }
+        collateralAsset {
+          address
+          symbol
+        }
+      }
+    }
+  }
+}

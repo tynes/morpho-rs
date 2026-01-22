@@ -1,0 +1,2281 @@
+scalar BigInt
+scalar Address
+scalar HexString
+scalar MarketId
+
+enum AddressMetadataType {
+  safe
+  risk
+  aragon
+}
+
+enum TimeseriesInterval {
+  MINUTE
+  FIVE_MINUTES
+  FIFTEEN_MINUTES
+  HALF_HOUR
+  HOUR
+  DAY
+  WEEK
+  MONTH
+  QUARTER
+  YEAR
+  ALL
+}
+
+enum OracleType {
+  ChainlinkOracle
+  ChainlinkOracleV2
+  CustomOracle
+  Unknown
+}
+
+enum RiskProvider {
+  CREDORA
+  BLOCKAID
+}
+
+enum WarningLevel {
+  YELLOW
+  RED
+}
+
+enum TransactionType {
+  MetaMorphoDeposit
+  MetaMorphoWithdraw
+  MetaMorphoTransfer
+  MetaMorphoFee
+  MarketBorrow
+  MarketLiquidation
+  MarketRepay
+  MarketSupply
+  MarketSupplyCollateral
+  MarketWithdraw
+  MarketWithdrawCollateral
+}
+
+enum VaultV2AdapterType {
+  MetaMorpho
+  MorphoMarketV1
+}
+
+enum VaultV2CapType {
+  Adapter
+  Collateral
+  MarketV1
+  Unknown
+}
+
+enum VaultV2WarningLevel {
+  YELLOW
+  RED
+  GREEN
+}
+
+enum VaultV2TimelockedFunctionName {
+  SetIsAllocator
+  SetReceiveSharesGate
+  SetSendSharesGate
+  SetReceiveAssetsGate
+  SetSendAssetsGate
+  SetAdapterRegistry
+  AddAdapter
+  RemoveAdapter
+  IncreaseTimelock
+  DecreaseTimelock
+  SetPerformanceFee
+  SetManagementFee
+  SetPerformanceFeeRecipient
+  SetManagementFeeRecipient
+  IncreaseAbsoluteCap
+  IncreaseRelativeCap
+  SetForceDeallocatePenalty
+  Abdicate
+}
+
+enum VaultV2LookbackPeriod {
+  ONE_HOUR
+  SIX_HOURS
+  ONE_DAY
+  SEVEN_DAYS
+  THIRTY_DAYS
+  NINETY_DAYS
+  ONE_YEAR
+  INCEPTION
+}
+
+enum PublicAllocatorReallocateType {
+  Deposit
+  Withdraw
+}
+
+enum VaultTimelockedFunctionName {
+  SetCap
+  SetTimelock
+  SetGuardian
+  RemoveMarket
+}
+
+enum VaultReallocateType {
+  ReallocateSupply
+  ReallocateWithdraw
+}
+
+enum VaultV2TransactionType {
+  Transfer
+  Deposit
+  Withdraw
+}
+
+enum AssetOrderBy {
+  Address
+  CredoraRiskScore
+}
+
+enum OrderDirection {
+  Asc
+  Desc
+}
+
+enum TransactionsOrderBy {
+  Timestamp
+  Shares
+  Assets
+  AssetsUsd
+  RepaidShares
+  RepaidAssets
+  RepaidAssetsUsd
+  SeizedAssets
+  SeizedAssetsUsd
+  BadDebtShares
+  BadDebtAssets
+  BadDebtAssetsUsd
+}
+
+enum UsersOrderBy {
+  Address
+}
+
+enum MarketOrderBy {
+  UniqueKey
+  Lltv
+  BorrowAssets
+  BorrowAssetsUsd
+  SupplyAssets
+  SupplyAssetsUsd
+  BorrowShares
+  SupplyShares
+  Utilization
+  RateAtUTarget
+  ApyAtTarget
+  SupplyApy
+  NetSupplyApy
+  BorrowApy
+  NetBorrowApy
+  Fee
+  LoanAssetSymbol
+  CollateralAssetSymbol
+  TotalLiquidityUsd
+  AvgBorrowApy
+  AvgNetBorrowApy
+  DailyBorrowApy
+  DailyNetBorrowApy
+  CredoraRiskScore
+  SizeUsd
+}
+
+enum MorphoBlueOrderBy {
+  Address
+}
+
+enum MarketPositionOrderBy {
+  SupplyShares
+  BorrowShares
+  Collateral
+  HealthFactor
+}
+
+enum PublicAllocatorOrderBy {
+  Address
+}
+
+enum PublicAllocatorReallocateOrderBy {
+  Timestamp
+  Assets
+}
+
+enum VaultOrderBy {
+  Address
+  TotalAssets
+  TotalAssetsUsd
+  TotalSupply
+  Fee
+  Apy
+  NetApy
+  Name
+  Curator
+  AvgApy
+  AvgNetApy
+  DailyApy
+  DailyNetApy
+  CredoraRiskScore
+}
+
+enum VaultPositionOrderBy {
+  Shares
+}
+
+enum VaultReallocateOrderBy {
+  Timestamp
+  Shares
+  Assets
+}
+
+enum VaultV2OrderBy {
+  Address
+  TotalAssets
+  TotalAssetsUsd
+  TotalSupply
+  Liquidity
+  LiquidityUsd
+  Apy
+  NetApy
+  RealAssets
+  RealAssetsUsd
+  IdleAssets
+  IdleAssetsUsd
+}
+
+enum VaultVersion {
+  V1
+  V2
+}
+
+enum VaultV2TransactionOrderBy {
+  Time
+  Shares
+}
+
+enum CacheControlScope {
+  PUBLIC
+  PRIVATE
+}
+
+interface VaultV2AdapterFactory {
+  id: ID!
+  chain: Chain!
+  address: Address!
+  creationBlockNumber: BigInt!
+}
+
+interface VaultV2Adapter {
+  id: ID!
+  chain: Chain!
+  address: Address!
+  creationBlockNumber: BigInt!
+  creationTimestamp: BigInt!
+  type: VaultV2AdapterType!
+  vault: VaultV2!
+  factory: VaultV2AdapterFactory!
+  assets: BigInt!
+  assetsUsd: Float
+}
+
+input TimeseriesOptions {
+  startTimestamp: Int
+  endTimestamp: Int
+  interval: TimeseriesInterval
+}
+
+input VaultAdminEventsFilters {
+  type_in: [String!]
+}
+
+input VaultV2WarningsFilters {
+  type_in: [String!]
+  level_in: [VaultV2WarningLevel!]
+}
+
+input AssetsFilters {
+  search: String
+  id_in: [String!]
+  symbol_in: [String!]
+  address_in: [String!]
+  chainId_in: [Int!]
+  tags_in: [String!]
+  listed: Boolean
+  isVaultAsset: Boolean
+  isCollateralAsset: Boolean
+  isLoanAsset: Boolean
+  isMarketAsset: Boolean
+  curator_in: [String!]
+}
+
+input TransactionFilters {
+  search: String
+  assetId_in: [String!]
+  assetSymbol_in: [String!]
+  assetAddress_in: [String!]
+  vaultId_in: [String!]
+  vaultAddress_in: [String!]
+  marketId_in: [String!]
+  marketUniqueKey_in: [String!]
+  userAddress_in: [String!]
+  userId_in: [String!]
+  type_in: [TransactionType!]
+  hash: String
+  timestamp_gte: Int
+  timestamp_lte: Int
+  chainId_in: [Int!]
+  shares_gte: BigInt
+  shares_lte: BigInt
+  assets_gte: BigInt
+  assets_lte: BigInt
+  assetsUsd_gte: Float
+  assetsUsd_lte: Float
+  repaidAssets_gte: BigInt
+  repaidAssets_lte: BigInt
+  repaidAssetsUsd_gte: Float
+  repaidAssetsUsd_lte: Float
+  repaidShares_gte: BigInt
+  repaidShares_lte: BigInt
+  seizedAssets_gte: BigInt
+  seizedAssets_lte: BigInt
+  seizedAssetsUsd_gte: Float
+  seizedAssetsUsd_lte: Float
+  badDebtShares_gte: BigInt
+  badDebtShares_lte: BigInt
+  badDebtAssets_gte: BigInt
+  badDebtAssets_lte: BigInt
+  badDebtAssetsUsd_gte: Float
+  badDebtAssetsUsd_lte: Float
+  liquidator_in: [String!]
+}
+
+input UsersFilters {
+  search: String
+  address_in: [String!]
+  id_in: [String!]
+  assetId_in: [String!]
+  assetSymbol_in: [String!]
+  assetAddress_in: [String!]
+  vaultId_in: [String!]
+  vaultAddress_in: [String!]
+  marketId_in: [String!]
+  marketUniqueKey_in: [String!]
+  chainId_in: [Int!]
+}
+
+input MarketFilters {
+  search: String
+  id_in: [String!]
+  listed: Boolean
+  countryCode: String
+  isIdle: Boolean
+  uniqueKey_in: [String!]
+  loanAssetTags_in: [String!]
+  collateralAssetTags_in: [String!]
+  oracleAddress_in: [String!]
+  irmAddress_in: [String!]
+  chainId_in: [Int!]
+  collateralAssetAddress_in: [String!]
+  collateralAssetId_in: [String!]
+  loanAssetAddress_in: [String!]
+  loanAssetId_in: [String!]
+  lltv_gte: BigInt
+  lltv_lte: BigInt
+  borrowAssets_gte: BigInt
+  borrowAssets_lte: BigInt
+  borrowAssetsUsd_gte: Float
+  borrowAssetsUsd_lte: Float
+  supplyAssets_gte: BigInt
+  supplyAssets_lte: BigInt
+  supplyAssetsUsd_gte: Float
+  supplyAssetsUsd_lte: Float
+  borrowShares_gte: BigInt
+  borrowShares_lte: BigInt
+  supplyShares_gte: BigInt
+  supplyShares_lte: BigInt
+  utilization_gte: Float
+  utilization_lte: Float
+  apyAtTarget_gte: Float
+  apyAtTarget_lte: Float
+  supplyApy_gte: Float
+  supplyApy_lte: Float
+  netSupplyApy_gte: Float
+  netSupplyApy_lte: Float
+  borrowApy_gte: Float
+  borrowApy_lte: Float
+  netBorrowApy_gte: Float
+  netBorrowApy_lte: Float
+  fee_gte: Float
+  fee_lte: Float
+}
+
+input CuratorFilters {
+  search: String
+  chainId_in: [Int!]
+  address_in: [String!]
+  verified: Boolean
+  ownerOnly: Boolean
+}
+
+input MorphoBlueFilters {
+  id_in: [String!]
+  address_in: [String!]
+  chainId_in: [Int!]
+}
+
+input MarketPositionFilters {
+  search: String
+  marketUniqueKey_in: [String!]
+  marketListed: Boolean
+  userAddress_in: [String!]
+  chainId_in: [Int!]
+  healthFactor_gte: Float
+  healthFactor_lte: Float
+  supplyShares_gte: BigInt
+  supplyShares_lte: BigInt
+  borrowShares_gte: BigInt
+  borrowShares_lte: BigInt
+  collateral_gte: BigInt
+  collateral_lte: BigInt
+}
+
+input OracleFeedsFilters {
+  address_in: [String!]
+  chainId_in: [Int!]
+}
+
+input OracleVaultsFilters {
+  address_in: [String!]
+  chainId_in: [Int!]
+}
+
+input OraclesFilters {
+  address_in: [String!]
+  chainId_in: [Int!]
+}
+
+input PublicAllocatorFilters {
+  id_in: [String!]
+  address_in: [String!]
+  chainId_in: [Int!]
+}
+
+input PublicallocatorReallocateFilters {
+  vaultId_in: [String!]
+  vaultAddress_in: [String!]
+  marketId_in: [String!]
+  marketUniqueKey_in: [String!]
+  chainId_in: [Int!]
+  type_in: [PublicAllocatorReallocateType!]
+  timestamp_gte: Int
+  timestamp_lte: Int
+  assets_gte: BigInt
+  assets_lte: BigInt
+}
+
+input VaultFilters {
+  search: String
+  listed: Boolean
+  featured: Boolean
+  countryCode: String
+  id_in: [String!]
+  address_in: [String!]
+  ownerAddress_in: [String!]
+  address_not_in: [String!]
+  creatorAddress_in: [String!]
+  factoryAddress_in: [String!]
+  curatorAddress_in: [String!]
+  symbol_in: [String!]
+  chainId_in: [Int!]
+  assetId_in: [String!]
+  assetAddress_in: [String!]
+  assetSymbol_in: [String!]
+  assetTags_in: [String!]
+  marketUniqueKey_in: [String!]
+  apy_gte: Float
+  apy_lte: Float
+  netApy_gte: Float
+  netApy_lte: Float
+  fee_gte: Float
+  fee_lte: Float
+  totalAssets_gte: BigInt
+  totalAssets_lte: BigInt
+  totalAssetsUsd_gte: Float
+  totalAssetsUsd_lte: Float
+  totalSupply_gte: BigInt
+  totalSupply_lte: BigInt
+  publicAllocatorFee_lte: Float
+  publicAllocatorFeeUsd_lte: Float
+  curator_in: [String!]
+}
+
+input VaultPositionFilters {
+  search: String
+  vaultAddress_in: [String!]
+  vaultListed: Boolean
+  userAddress_in: [String!]
+  chainId_in: [Int!]
+  shares_gte: BigInt
+  shares_lte: BigInt
+}
+
+input VaultReallocateFilters {
+  vaultId_in: [String!]
+  vaultAddress_in: [String!]
+  marketId_in: [String!]
+  marketUniqueKey_in: [String!]
+  type_in: [VaultReallocateType!]
+  chainId_in: [Int!]
+  timestamp_gte: Int
+  timestamp_lte: Int
+  shares_gte: BigInt
+  shares_lte: BigInt
+  assets_gte: BigInt
+  assets_lte: BigInt
+}
+
+input VaultV2sFilters {
+  chainId_in: [Int!]
+  address_in: [String!]
+  listed: Boolean
+  totalAssetsUsd_gte: Float
+  totalAssetsUsd_lte: Float
+  totalAssets_gte: BigInt
+  totalAssets_lte: BigInt
+  totalSupply_gte: BigInt
+  totalSupply_lte: BigInt
+  liquidityUsd_gte: Float
+  liquidityUsd_lte: Float
+  liquidity_gte: BigInt
+  liquidity_lte: BigInt
+  apy_gte: Float
+  apy_lte: Float
+  netApy_gte: Float
+  netApy_lte: Float
+  realAssetsUsd_gte: Float
+  realAssetsUsd_lte: Float
+  realAssets_gte: BigInt
+  realAssets_lte: BigInt
+  idleAssetsUsd_gte: Float
+  idleAssetsUsd_lte: Float
+  idleAssets_gte: BigInt
+  idleAssets_lte: BigInt
+}
+
+input _CrossVersionVaultFilters {
+  search: String
+  whitelisted: Boolean
+  listed: Boolean
+  promoted: Boolean
+  featured: Boolean
+  countryCode: String
+  id_in: [String!]
+  address_in: [String!]
+  ownerAddress_in: [String!]
+  address_not_in: [String!]
+  creatorAddress_in: [String!]
+  factoryAddress_in: [String!]
+  curatorAddress_in: [String!]
+  symbol_in: [String!]
+  chainId_in: [Int!]
+  assetId_in: [String!]
+  assetAddress_in: [String!]
+  assetSymbol_in: [String!]
+  assetTags_in: [String!]
+  marketUniqueKey_in: [String!]
+  apy_gte: Float
+  apy_lte: Float
+  netApy_gte: Float
+  netApy_lte: Float
+  fee_gte: Float
+  fee_lte: Float
+  totalAssets_gte: BigInt
+  totalAssets_lte: BigInt
+  totalAssetsUsd_gte: Float
+  totalAssetsUsd_lte: Float
+  totalSupply_gte: BigInt
+  totalSupply_lte: BigInt
+  publicAllocatorFee_lte: Float
+  publicAllocatorFeeUsd_lte: Float
+  credoraRiskScore_lte: Float
+  credoraRiskScore_gte: Float
+  curator_in: [String!]
+  version: VaultVersion
+}
+
+input VaultV2TransactionFilters {
+  vaultAddress_in: [String!]
+  userAddress_in: [String!]
+  type_in: [VaultV2TransactionType!]
+  hash: String
+  timestamp_gte: Int
+  timestamp_lte: Int
+  chainId_in: [Int!]
+  shares_gte: BigInt
+  shares_lte: BigInt
+  assets_gte: BigInt
+  assets_lte: BigInt
+}
+
+union Metadata = SafeAddressMetadata | AddressRiskMetadata | AragonAddressMetadata
+
+union OracleData = MorphoChainlinkOracleData | MorphoChainlinkOracleV2Data
+
+union RiskAnalysisData = CredoraRiskAnalysis
+
+union MarketWarningMetadata = BadDebtUnrealizedMarketWarningMetadata | IncorrectOracleConfigurationMarketWarningMetadata | UnrecognizedCollateralAssetMarketWarningMetadata | UnrecognizedLoanAssetMarketWarningMetadata | CustomMetadata
+
+union TransactionData = VaultTransactionData | MarketCollateralTransferTransactionData | MarketTransferTransactionData | MarketLiquidationTransactionData
+
+union VaultV2CapData = AdapterCapData | CollateralCapData | MarketV1CapData
+
+union VaultV2WarningMetadata = UnrecognizedAssetVaultWarningMetadata | TimelockVaultV2WarningMetadata | CustomMetadata
+
+union VaultV2PendingConfigDecodedData = VaultV2SetIsAllocatorPendingData | VaultV2SetReceiveSharesGatePendingData | VaultV2SetSendSharesGatePendingData | VaultV2SetReceiveAssetsGatePendingData | VaultV2SetSendAssetsGatePendingData | VaultV2SetAdapterRegistryPendingData | VaultV2AdapterPendingData | VaultV2TimelockPendingData | VaultV2SetPerformanceFeePendingData | VaultV2SetManagementFeePendingData | VaultV2SetPerformanceFeeRecipientPendingData | VaultV2SetManagementFeeRecipientPendingData | VaultV2IncreaseCapPendingData | VaultV2SetForceDeallocatePenaltyPendingData | VaultV2AbdicatePendingData
+
+union VaultAdminEventData = SetCuratorEventData | SetFeeEventData | SetFeeRecipientEventData | SetGuardianEventData | SetIsAllocatorEventData | SetSkimRecipientEventData | SetSupplyQueueEventData | SetWithdrawQueueEventData | SkimEventData | CapEventData | TimelockEventData | ReallocateSupplyEventData | ReallocateWithdrawEventData | OwnershipEventData | RevokeCapEventData | RevokePendingMarketRemovalEventData
+
+union VaultWarningMetadata = InvalidNameVaultWarningMetadata | InvalidSymbolVaultWarningMetadata | ShortTimelockVaultWarningMetadata | UnrecognizedDepositAssetVaultWarningMetadata | CustomMetadata
+
+union VaultPendingConfigDecodedData = VaultSetCapPendingData | VaultSetTimelockPendingData | VaultSetGuardianPendingData | VaultRemoveMarketPendingData
+
+union VaultV2TransactionData = VaultV2DepositData | VaultV2WithdrawData | VaultV2TransferData
+
+type PageInfo {
+  countTotal: Int!
+  count: Int!
+  limit: Int!
+  skip: Int!
+}
+
+type BigIntDataPoint {
+  x: Float!
+  y: BigInt
+}
+
+type FloatDataPoint {
+  x: Float!
+  y: Float
+}
+
+type IntDataPoint {
+  x: Float!
+  y: Int
+}
+
+type AddressDataPoint {
+  x: Float!
+  y: Address
+}
+
+type AddressMetadata {
+  type: AddressMetadataType!
+  metadata: Metadata!
+}
+
+type SafeAddressMetadata {
+  owners: [String!]!
+  threshold: Int!
+}
+
+type AddressRiskMetadata {
+  risk: String!
+  riskReason: String
+  isAuthorized: Boolean!
+}
+
+type AragonAddressMetadata {
+  ensDomain: String
+  name: String
+  description: String
+}
+
+type PaginatedAddressMetadata {
+  items: [AddressMetadata!]
+  pageInfo: PageInfo
+}
+
+type AssetYield {
+  apr: Float!
+}
+
+type Asset {
+  id: ID!
+  address: Address!
+  decimals: Float!
+  name: String!
+  symbol: String!
+  tags: [String!]
+  logoURI: String
+  isWhitelisted: Boolean!
+  priceUsd: Float
+  oraclePriceUsd(timestamp: Float): Float
+  historicalPriceUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  spotPriceEth(timestamp: Float): Float
+  totalSupply: BigInt!
+  historicalSpotPriceEth(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  chain: Chain!
+  vault: Vault
+  yield: AssetYield
+  riskAnalysis: [RiskAnalysis!]!
+  isListed: Boolean!
+}
+
+type Block {
+  id: ID!
+  number: BigInt!
+  timestamp: BigInt!
+}
+
+type Chain {
+  id: Int!
+  network: String!
+  currency: String!
+  blockTimeMs: Int
+  headBlock: Block
+}
+
+type MorphoBlueStateHistory {
+  totalCollateralUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  totalSupplyUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  totalDepositUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  totalBorrowUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  tvlUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  userCount(options: TimeseriesOptions = {}): [IntDataPoint!]!
+  marketCount(options: TimeseriesOptions = {}): [IntDataPoint!]!
+  vaultCount(options: TimeseriesOptions = {}): [IntDataPoint!]!
+}
+
+type MorphoBlueState {
+  id: ID!
+  timestamp: BigInt!
+  totalCollateralUsd: Float!
+  totalSupplyUsd: Float!
+  totalDepositUsd: Float!
+  totalBorrowUsd: Float!
+  tvlUsd: Float!
+  userCount: Int!
+  marketCount: Int!
+  vaultCount: Int!
+}
+
+type MorphoBlue {
+  id: ID!
+  address: Address!
+  creationBlockNumber: Int!
+  chain: Chain!
+  state: MorphoBlueState
+  historicalState: MorphoBlueStateHistory
+}
+
+type ChainlinkOracleV2Event {
+  txHash: HexString!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  chainId: Int!
+  caller: Address!
+}
+
+type OracleFeed {
+  id: ID!
+  address: Address!
+  description: String
+  vendor: String
+  pair: [String!]
+  decimals: Int
+  chain: Chain!
+  historicalPrice: [BigIntDataPoint!]
+  price: BigIntDataPoint
+}
+
+type OracleVault {
+  id: ID!
+  address: Address!
+  chain: Chain!
+  assetId: String
+  metamorphoId: String
+  vendor: String
+  pair: [String!]
+  decimals: Int
+  price: BigIntDataPoint
+  historicalPrice: [BigIntDataPoint!]
+}
+
+type Oracle {
+  id: ID!
+  address: Address!
+  type: OracleType!
+  data: OracleData
+  chain: Chain!
+  markets: [Market!]!
+  creationEvent: ChainlinkOracleV2Event
+}
+
+type MorphoChainlinkOracleData {
+  baseFeedOne: OracleFeed
+  baseFeedTwo: OracleFeed
+  quoteFeedOne: OracleFeed
+  quoteFeedTwo: OracleFeed
+  scaleFactor: BigInt!
+  vault: String!
+  chainId: Int!
+  baseOracleVault: OracleVault
+  vaultConversionSample: BigInt!
+}
+
+type MorphoChainlinkOracleV2Data {
+  baseFeedOne: OracleFeed
+  baseFeedTwo: OracleFeed
+  quoteFeedOne: OracleFeed
+  quoteFeedTwo: OracleFeed
+  scaleFactor: BigInt!
+  baseVault: String!
+  baseOracleVault: OracleVault
+  quoteOracleVault: OracleVault
+  quoteVault: String!
+  chainId: Int!
+  baseVaultConversionSample: BigInt!
+  quoteVaultConversionSample: BigInt!
+}
+
+type PublicAllocatorSharedLiquidity {
+  id: ID!
+  assets: BigInt!
+  market: Market!
+  allocationMarket: Market!
+  publicAllocator: PublicAllocator!
+  withdrawMarket: Market!
+  supplyMarket: Market!
+  vault: Vault!
+}
+
+type RiskAnalysis {
+  provider: RiskProvider!
+  analysis: RiskAnalysisData!
+  score: Float!
+  rating: String
+  isUnderReview: Boolean!
+  timestamp: Float!
+}
+
+type CredoraRiskAnalysis {
+  score: Float!
+  rating: String
+  isUnderReview: Boolean!
+  timestamp: Float!
+}
+
+type MarketWarning {
+  type: String!
+  level: WarningLevel!
+  metadata: MarketWarningMetadata
+}
+
+type BadDebtUnrealizedMarketWarningMetadata {
+  badDebtUsd: Float
+  badDebtAssets: BigInt!
+  totalSupplyAssets: BigInt!
+  badDebtShare: Float!
+}
+
+type IncorrectOracleConfigurationMarketWarningMetadata {
+  type: String!
+  scaleFactor: BigInt
+  expectedScaleFactor: BigInt
+  expectedScaleFactorExponent: BigInt
+}
+
+type UnrecognizedCollateralAssetMarketWarningMetadata {
+  asset: Asset!
+}
+
+type UnrecognizedLoanAssetMarketWarningMetadata {
+  asset: Asset!
+}
+
+type CustomMetadata {
+  content: String
+}
+
+type MarketConcentration {
+  supplyHhi: Float
+  borrowHhi: Float
+}
+
+type MarketApyAggregates {
+  supplyApy: Float
+  borrowApy: Float
+  netSupplyApy: Float
+  netBorrowApy: Float
+}
+
+type IRMCurveDataPoint {
+  utilization: Float!
+  supplyApy: Float!
+  borrowApy: Float!
+}
+
+type MarketBadDebt {
+  underlying: BigInt!
+  usd: Float
+}
+
+type MarketOracleInfo {
+  type: OracleType!
+}
+
+type MarketOracleFeed {
+  baseFeedOneAddress: Address!
+  baseFeedOneDescription: String
+  baseFeedOneVendor: String
+  baseFeedTwoAddress: Address!
+  baseFeedTwoDescription: String
+  baseFeedTwoVendor: String
+  baseVault: Address
+  baseVaultDescription: String
+  baseVaultVendor: String
+  baseVaultConversionSample: BigInt
+  quoteFeedOneAddress: Address!
+  quoteFeedOneDescription: String
+  quoteFeedOneVendor: String
+  quoteFeedTwoAddress: Address!
+  quoteFeedTwoDescription: String
+  quoteFeedTwoVendor: String
+  quoteVault: Address
+  quoteVaultDescription: String
+  quoteVaultVendor: String
+  quoteVaultConversionSample: BigInt
+  scaleFactor: BigInt
+}
+
+type Market {
+  id: ID!
+  uniqueKey: MarketId!
+  lltv: BigInt!
+  oracleAddress: Address!
+  irmAddress: Address!
+  creationBlockNumber: Int!
+  creationTimestamp: BigInt!
+  creatorAddress: Address
+  whitelisted: Boolean!
+  collateralPrice: BigInt
+  reallocatableLiquidityAssets: BigInt
+  targetBorrowUtilization: BigInt!
+  targetWithdrawUtilization: BigInt!
+  loanAsset: Asset!
+  collateralAsset: Asset
+  oracle: Oracle
+  morphoBlue: MorphoBlue!
+  oracleFeed: MarketOracleFeed
+  oracleInfo: MarketOracleInfo
+  concentration: MarketConcentration
+  badDebt: MarketBadDebt
+  realizedBadDebt: MarketBadDebt
+  dailyApys: MarketApyAggregates
+  weeklyApys: MarketApyAggregates
+  monthlyApys: MarketApyAggregates
+  quarterlyApys: MarketApyAggregates
+  yearlyApys: MarketApyAggregates
+  allTimeApys: MarketApyAggregates
+  currentIrmCurve(numberOfPoints: Int = 100): [IRMCurveDataPoint!]
+  publicAllocatorSharedLiquidity: [PublicAllocatorSharedLiquidity!]
+  warnings: [MarketWarning!]!
+  supplyingVaults: [Vault!]!
+  riskAnalysis: [RiskAnalysis!]!
+  historicalState: MarketHistory
+  listed: Boolean!
+  state: MarketState
+}
+
+type VaultApyAggregates {
+  apy: Float
+  netApy: Float
+}
+
+type VaultLiquidity {
+  underlying: BigInt!
+  usd: Float!
+}
+
+type VaultAllocator {
+  address: Address!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  metadata(first: Int = 100, skip: Int = 0): PaginatedAddressMetadata
+}
+
+type VaultPendingCap {
+  supplyCap: BigInt!
+  validAt: BigInt!
+  market: Market!
+}
+
+type VaultMetadataCurator {
+  name: String!
+  image: String!
+  url: String!
+  verified: Boolean!
+}
+
+type VaultMetadata {
+  description: String!
+  image: String!
+  forumLink: String
+  curators: [VaultMetadataCurator!]!
+}
+
+type Vault {
+  id: ID!
+  address: Address!
+  symbol: String!
+  creationBlockNumber: Int!
+  creationTimestamp: BigInt!
+  creatorAddress: Address
+  whitelisted: Boolean!
+  promoted: Boolean!
+  name: String!
+  listed: Boolean!
+  featured: Boolean!
+  asset: Asset!
+  factory: VaultFactory!
+  chain: Chain!
+  state: VaultState
+  historicalState: VaultHistory!
+  dailyApy: Float
+  monthlyApy: Float
+  dailyApys: VaultApyAggregates
+  weeklyApys: VaultApyAggregates
+  monthlyApys: VaultApyAggregates
+  liquidity: VaultLiquidity
+  warnings: [VaultWarning!]!
+  publicAllocatorConfig: PublicAllocatorConfig
+  allocators: [VaultAllocator!]!
+  pendingCaps: [VaultPendingCap!]!
+  riskAnalysis: [RiskAnalysis!]!
+  adminEvents(first: Int = 100, skip: Int = 0, where: VaultAdminEventsFilters): PaginatedVaultAdminEvent
+  metadata: VaultMetadata
+}
+
+type Account {
+  address: Address!
+  metadata(first: Int = 100, skip: Int = 0): PaginatedAddressMetadata!
+}
+
+type CuratorAddress {
+  chainId: Int!
+  address: String!
+  metadata(first: Int = 100, skip: Int = 0): PaginatedAddressMetadata
+}
+
+type CuratorState {
+  curatorId: ID!
+  aum: Float!
+}
+
+type Curator {
+  id: ID!
+  name: String!
+  description: String
+  verified: Boolean!
+  image: String
+  url: String
+  socials: [CuratorSocial!]!
+  state: CuratorState
+  addresses: [CuratorAddress!]!
+  ownerOnly: Boolean!
+}
+
+type CuratorSocial {
+  type: String!
+  url: String!
+}
+
+type PaginatedCurators {
+  items: [Curator!]
+  pageInfo: PageInfo
+}
+
+type VaultStateReward {
+  yearlySupplyTokens: BigInt!
+  supplyApr: Float
+  amountPerSuppliedToken: BigInt!
+  asset: Asset!
+}
+
+type MarketPositionHistory {
+  pnl(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  pnlUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  roe(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  roeUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  supplyPnl(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  supplyPnlUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  supplyRoe(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  supplyRoeUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  borrowPnl(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  borrowPnlUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  borrowRoe(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  borrowRoeUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  collateralPnlUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  collateralRoeUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  marginPnl(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  marginPnlUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  marginRoe(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  marginRoeUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  collateral(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  collateralValue(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  collateralUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  supplyAssets(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  supplyAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  supplyShares(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  borrowAssets(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  borrowAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  borrowShares(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  margin(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  marginUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+}
+
+type MarketPositionState {
+  id: ID!
+  timestamp: BigInt!
+  pnl: BigInt
+  pnlUsd: Float
+  roe: Float
+  roeUsd: Float
+  supplyPnl: BigInt
+  supplyPnlUsd: Float
+  supplyRoe: Float
+  supplyRoeUsd: Float
+  borrowPnl: BigInt
+  borrowPnlUsd: Float
+  borrowRoe: Float
+  borrowRoeUsd: Float
+  collateralPnlUsd: Float
+  collateralRoeUsd: Float
+  marginPnl: BigInt
+  marginPnlUsd: Float
+  marginRoe: Float
+  marginRoeUsd: Float
+  collateral: BigInt!
+  collateralValue: BigInt
+  collateralUsd: Float
+  supplyAssets: BigInt
+  supplyAssetsUsd: Float
+  supplyShares: BigInt!
+  borrowAssets: BigInt
+  borrowAssetsUsd: Float
+  borrowShares: BigInt!
+  margin: BigInt
+  marginUsd: Float
+}
+
+type Transaction {
+  id: ID!
+  timestamp: BigInt!
+  hash: HexString!
+  logIndex: Int!
+  blockNumber: BigInt!
+  type: TransactionType!
+  data: TransactionData!
+  chain: Chain!
+  user: User!
+}
+
+type VaultTransactionData {
+  shares: BigInt!
+  assets: BigInt!
+  assetsUsd: Float
+  vault: Vault!
+}
+
+type MarketCollateralTransferTransactionData {
+  assets: BigInt!
+  assetsUsd: Float
+  market: Market!
+}
+
+type MarketTransferTransactionData {
+  shares: BigInt!
+  assets: BigInt!
+  assetsUsd: Float
+  market: Market!
+}
+
+type MarketLiquidationTransactionData {
+  repaidAssets: BigInt!
+  repaidAssetsUsd: Float
+  repaidShares: BigInt!
+  seizedAssets: BigInt!
+  seizedAssetsUsd: Float
+  badDebtShares: BigInt!
+  badDebtAssets: BigInt!
+  badDebtAssetsUsd: Float
+  liquidator: Address!
+  market: Market!
+}
+
+type UserHistory {
+  vaultsAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  vaultV2sAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  marketsCollateralUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  marketsSupplyAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  marketsBorrowAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  marketsMarginUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+}
+
+type UserState {
+  vaultsPnlUsd: Float!
+  vaultsRoeUsd: Float!
+  vaultsAssetsUsd: Float!
+  vaultV2sPnlUsd: Float!
+  vaultV2sRoeUsd: Float!
+  vaultV2sAssetsUsd: Float!
+  marketsPnlUsd: Float!
+  marketsRoeUsd: Float!
+  marketsSupplyPnlUsd: Float!
+  marketsSupplyRoeUsd: Float!
+  marketsBorrowPnlUsd: Float!
+  marketsBorrowRoeUsd: Float!
+  marketsCollateralPnlUsd: Float!
+  marketsCollateralRoeUsd: Float!
+  marketsMarginPnlUsd: Float!
+  marketsMarginRoeUsd: Float!
+  marketsCollateralUsd: Float!
+  marketsSupplyAssetsUsd: Float!
+  marketsBorrowAssetsUsd: Float!
+  marketsMarginUsd: Float!
+}
+
+type VaultPositionHistory {
+  pnl(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  pnlUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  roe(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  roeUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  assets(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  assetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  shares(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+}
+
+type VaultPositionState {
+  id: ID!
+  timestamp: BigInt!
+  pnl: BigInt
+  pnlUsd: Float
+  roe: Float
+  roeUsd: Float
+  assets: BigInt
+  assetsUsd: Float
+  shares: BigInt!
+}
+
+type VaultPosition {
+  id: ID!
+  whitelisted: Boolean!
+  shares: BigInt!
+  assets: BigInt!
+  assetsUsd: Float
+  state: VaultPositionState
+  historicalState: VaultPositionHistory
+  user: User!
+  vault: Vault!
+  listed: Boolean!
+}
+
+type VaultV2PositionHistory {
+  pnl(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  pnlUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  roe(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  roeUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  assets(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+  assetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  shares(options: TimeseriesOptions = {}): [BigIntDataPoint!]
+}
+
+type VaultV2Position {
+  id: ID!
+  chain: Chain!
+  user: User!
+  vault: VaultV2!
+  shares: BigInt!
+  assets: BigInt!
+  assetsUsd: Float
+  pnl: BigInt
+  pnlUsd: Float
+  roe: Float
+  roeUsd: Float
+  history: VaultV2PositionHistory!
+}
+
+type User {
+  id: ID!
+  address: Address!
+  tag: String
+  chain: Chain!
+  marketPositions: [MarketPosition!]!
+  vaultPositions: [VaultPosition!]!
+  vaultV2Positions: [VaultV2Position!]!
+  transactions: [Transaction!]!
+  state: UserState!
+  historicalState: UserHistory!
+}
+
+type MarketPosition {
+  id: ID!
+  whitelisted: Boolean!
+  supplyShares: BigInt!
+  supplyAssets: BigInt!
+  supplyAssetsUsd: Float
+  borrowShares: BigInt!
+  borrowAssets: BigInt!
+  borrowAssetsUsd: Float
+  collateral: BigInt!
+  collateralUsd: Float
+  healthFactor: Float
+  priceVariationToLiquidationPrice: Float
+  state: MarketPositionState
+  historicalState: MarketPositionHistory
+  user: User!
+  market: Market!
+  listed: Boolean!
+}
+
+type PaginatedMarketPositions {
+  items: [MarketPosition!]
+  pageInfo: PageInfo
+}
+
+type MetaMorphoAdapterFactory implements VaultV2AdapterFactory {
+  id: ID!
+  chain: Chain!
+  address: Address!
+  creationBlockNumber: BigInt!
+}
+
+type MetaMorphoAdapter implements VaultV2Adapter {
+  id: ID!
+  chain: Chain!
+  address: Address!
+  creationBlockNumber: BigInt!
+  creationTimestamp: BigInt!
+  type: VaultV2AdapterType!
+  vault: VaultV2!
+  factory: VaultV2AdapterFactory!
+  assets: BigInt!
+  assetsUsd: Float
+  metaMorpho: Vault!
+  position: VaultPosition
+}
+
+type MorphoMarketV1Adapter implements VaultV2Adapter {
+  id: ID!
+  chain: Chain!
+  address: Address!
+  creationBlockNumber: BigInt!
+  creationTimestamp: BigInt!
+  type: VaultV2AdapterType!
+  vault: VaultV2!
+  factory: VaultV2AdapterFactory!
+  assets: BigInt!
+  assetsUsd: Float
+  positions(first: Int = 100, skip: Int = 0): PaginatedMarketPositions!
+}
+
+type PaginatedVaultV2Adapters {
+  items: [VaultV2Adapter!]
+  pageInfo: PageInfo
+}
+
+type MarketParams {
+  id: HexString!
+  loanToken: Address!
+  collateralToken: Address!
+  oracle: Address!
+  irm: Address!
+  lltv: BigInt!
+}
+
+type VaultV2CapConfig {
+  id: HexString!
+  idData: HexString!
+  type: VaultV2CapType!
+  data: VaultV2CapData
+}
+
+type AdapterCapData {
+  adapterAddress: Address!
+  adapter: VaultV2Adapter
+}
+
+type CollateralCapData {
+  collateralAddress: Address!
+  collateralToken: Asset
+}
+
+type MarketV1CapData {
+  adapterAddress: Address!
+  marketParams: MarketParams!
+  adapter: VaultV2Adapter
+  market: Market
+}
+
+type VaultV2Caps {
+  id: HexString!
+  idData: HexString!
+  type: VaultV2CapType!
+  data: VaultV2CapData
+  absoluteCap: BigInt!
+  relativeCap: BigInt!
+  allocation: BigInt!
+}
+
+type PaginatedVaultV2Caps {
+  items: [VaultV2Caps!]
+  pageInfo: PageInfo
+}
+
+type PaginatedVaultV2Positions {
+  items: [VaultV2Position!]
+  pageInfo: PageInfo
+}
+
+type VaultV2HistoricalCaps {
+  cap: VaultV2Caps
+  allocation: [BigIntDataPoint!]!
+  allocationUsd: [FloatDataPoint!]!
+  absoluteCap: [BigIntDataPoint!]!
+  relativeCap: [BigIntDataPoint!]!
+  relativeAllocation: [FloatDataPoint!]!
+}
+
+type PaginatedVaultV2HistoricalCaps {
+  items: [VaultV2HistoricalCaps!]
+  pageInfo: PageInfo
+}
+
+type VaultV2History {
+  totalAssets(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  totalAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  totalSupply(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  realAssets(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  realAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  idleAssets(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  idleAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  sharePrice(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  avgApy(options: TimeseriesOptions = {}, lookbackHours: Int = 6): [FloatDataPoint!]!
+  avgNetApy(options: TimeseriesOptions = {}, lookbackHours: Int = 6): [FloatDataPoint!]!
+  caps(options: TimeseriesOptions = {}, capType_in: [VaultV2CapType!]): PaginatedVaultV2HistoricalCaps!
+}
+
+type TimelockFailedCheckVaultV2WarningMetadata {
+  functionName: String!
+  currentTimelock: BigInt!
+  requiredTimelock: BigInt!
+}
+
+type VaultV2Warning {
+  type: String!
+  level: VaultV2WarningLevel!
+  metadata: VaultV2WarningMetadata
+}
+
+type UnrecognizedAssetVaultWarningMetadata {
+  asset: Asset!
+}
+
+type TimelockVaultV2WarningMetadata {
+  failedChecks: [TimelockFailedCheckVaultV2WarningMetadata!]!
+}
+
+type VaultV2Allocator {
+  allocator: Account!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type VaultV2Metadata {
+  description: String
+  image: String
+  forumLink: String
+}
+
+type VaultV2PendingConfig {
+  validAt: BigInt!
+  functionName: VaultV2TimelockedFunctionName!
+  data: HexString!
+  decodedData: VaultV2PendingConfigDecodedData!
+  txHash: HexString!
+}
+
+type VaultV2SetIsAllocatorPendingData {
+  isAllocator: Boolean!
+  account: Account!
+}
+
+type VaultV2SetReceiveSharesGatePendingData {
+  receiveSharesGate: Address!
+}
+
+type VaultV2SetSendSharesGatePendingData {
+  sendSharesGate: Address!
+}
+
+type VaultV2SetReceiveAssetsGatePendingData {
+  receiveAssetsGate: Address!
+}
+
+type VaultV2SetSendAssetsGatePendingData {
+  sendAssetsGate: Address!
+}
+
+type VaultV2SetAdapterRegistryPendingData {
+  adapterRegistry: Address!
+}
+
+type VaultV2AdapterPendingData {
+  adapterAddress: Address!
+  adapter: VaultV2Adapter
+}
+
+type VaultV2TimelockPendingData {
+  timelock: BigInt!
+  selector: HexString!
+  functionName: String!
+}
+
+type VaultV2SetPerformanceFeePendingData {
+  performanceFee: BigInt!
+}
+
+type VaultV2SetManagementFeePendingData {
+  managementFee: BigInt!
+}
+
+type VaultV2SetPerformanceFeeRecipientPendingData {
+  performanceFeeRecipient: Address!
+}
+
+type VaultV2SetManagementFeeRecipientPendingData {
+  managementFeeRecipient: Address!
+}
+
+type VaultV2IncreaseCapPendingData {
+  cap: BigInt!
+  config: VaultV2CapConfig!
+}
+
+type VaultV2SetForceDeallocatePenaltyPendingData {
+  forceDeallocatePenalty: BigInt!
+  adapterAddress: Address!
+  adapter: VaultV2Adapter
+}
+
+type VaultV2AbdicatePendingData {
+  selector: HexString!
+  functionName: String!
+}
+
+type PaginatedVaultV2PendingConfig {
+  items: [VaultV2PendingConfig!]
+  pageInfo: PageInfo
+}
+
+type VaultV2Sentinel {
+  sentinel: Account!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type VaultV2Timelock {
+  selector: HexString!
+  functionName: String!
+  duration: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  abdicatedAt: BigInt
+}
+
+type VaultV2 {
+  id: ID!
+  address: Address!
+  name: String!
+  symbol: String!
+  whitelisted: Boolean!
+  metadata: VaultV2Metadata
+  curators(first: Int = 100, skip: Int = 0): PaginatedCurators!
+  curator: Account!
+  owner: Account!
+  creationBlockNumber: BigInt!
+  creationTimestamp: BigInt!
+  adapters(first: Int = 100, skip: Int = 0): PaginatedVaultV2Adapters!
+  liquidityAdapter: VaultV2Adapter
+  totalAssets: BigInt
+  totalSupply: BigInt!
+  totalAssetsUsd: Float
+  idleAssets: BigInt!
+  idleAssetsUsd: Float
+  liquidity: BigInt!
+  liquidityUsd: Float
+  sharePrice: Float!
+  rewards: [VaultStateReward!]!
+  performanceFee: Float!
+  performanceFeeRecipient: Address!
+  managementFee: Float!
+  managementFeeRecipient: Address!
+  maxRate: BigInt!
+  maxApy: Float!
+  allocators: [VaultV2Allocator!]!
+  caps(first: Int = 100, skip: Int = 0): PaginatedVaultV2Caps!
+  sentinels: [VaultV2Sentinel!]!
+  timelocks: [VaultV2Timelock!]!
+  historicalState: VaultV2History!
+  warnings(where: VaultV2WarningsFilters): [VaultV2Warning!]!
+  positions(first: Int = 100, skip: Int = 0): PaginatedVaultV2Positions!
+  pendingConfigs(first: Int = 100, skip: Int = 0, functionName_in: [VaultV2TimelockedFunctionName!]): PaginatedVaultV2PendingConfig!
+  listed: Boolean!
+  chain: Chain!
+  asset: Asset!
+  factory: VaultV2Factory!
+  avgApy(lookback: VaultV2LookbackPeriod = SIX_HOURS): Float
+  avgNetApy(lookback: VaultV2LookbackPeriod = SIX_HOURS): Float
+  apy: Float
+  netApy: Float
+}
+
+type _CrossVersionVault {
+  v1: Vault
+  v2: VaultV2
+}
+
+type _PaginatedCrossVersionVault {
+  items: [_CrossVersionVault!]
+  pageInfo: PageInfo
+}
+
+type PaginatedAssets {
+  items: [Asset!]
+  pageInfo: PageInfo
+}
+
+type MarketHistory {
+  borrowAssets(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  supplyAssets(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  borrowAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  supplyAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  borrowShares(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  supplyShares(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  utilization(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  liquidityAssets(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  liquidityAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  collateralAssets(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  collateralAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  rateAtTarget(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  apyAtTarget(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  rateAtUTarget(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  supplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  netSupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  netBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  borrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  fee(options: TimeseriesOptions = {}): [FloatDataPoint!]
+  price(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  dailySupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  dailyNetSupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  dailyBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  dailyNetBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  weeklySupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  weeklyNetSupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  weeklyBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  weeklyNetBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  monthlySupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  monthlyNetSupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  monthlyBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  monthlyNetBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  quarterlySupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  quarterlyNetSupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  quarterlyBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  quarterlyNetBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  yearlySupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  yearlyNetSupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  yearlyBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  yearlyNetBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  allTimeSupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  allTimeNetSupplyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  allTimeBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  allTimeNetBorrowApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+}
+
+type MarketState {
+  id: ID!
+  blockNumber: BigInt!
+  borrowAssets: BigInt!
+  supplyAssets: BigInt!
+  borrowAssetsUsd: Float
+  supplyAssetsUsd: Float
+  borrowShares: BigInt!
+  supplyShares: BigInt!
+  collateralAssets: BigInt
+  collateralAssetsUsd: Float
+  utilization: Float!
+  apyAtTarget: Float!
+  rateAtTarget: BigInt
+  supplyApy: Float!
+  borrowApy: Float!
+  netSupplyApy: Float
+  netBorrowApy: Float
+  price: BigInt
+  timestamp: BigInt!
+  avgSupplyApy: Float
+  avgNetSupplyApy: Float
+  avgBorrowApy: Float
+  avgNetBorrowApy: Float
+  dailySupplyApy: Float
+  dailyNetSupplyApy: Float
+  dailyBorrowApy: Float
+  dailyNetBorrowApy: Float
+  block: Block!
+  rewards: [MarketStateReward!]!
+  dailyPriceVariation: Float
+  fee: Float!
+  rateAtUTarget: Float!
+  liquidityAssets: BigInt!
+  liquidityAssetsUsd: Float
+  size: BigInt!
+  sizeUsd: Float
+  totalLiquidity: BigInt!
+  totalLiquidityUsd: Float
+  weeklySupplyApy: Float
+  weeklyNetSupplyApy: Float
+  weeklyBorrowApy: Float
+  weeklyNetBorrowApy: Float
+  biweeklySupplyApy: Float
+  biweeklyNetSupplyApy: Float
+  biweeklyBorrowApy: Float
+  biweeklyNetBorrowApy: Float
+  monthlySupplyApy: Float
+  monthlyNetSupplyApy: Float
+  monthlyBorrowApy: Float
+  monthlyNetBorrowApy: Float
+  quarterlySupplyApy: Float
+  quarterlyNetSupplyApy: Float
+  quarterlyBorrowApy: Float
+  quarterlyNetBorrowApy: Float
+  yearlySupplyApy: Float
+  yearlyNetSupplyApy: Float
+  yearlyBorrowApy: Float
+  yearlyNetBorrowApy: Float
+  allTimeSupplyApy: Float
+  allTimeNetSupplyApy: Float
+  allTimeBorrowApy: Float
+  allTimeNetBorrowApy: Float
+}
+
+type PaginatedMarkets {
+  items: [Market!]
+  pageInfo: PageInfo
+}
+
+type CollateralAtRiskDataPoint {
+  collateralPriceRatio: Float!
+  collateralAssets: BigInt!
+  collateralUsd: Float!
+}
+
+type MarketCollateralAtRisk {
+  market: Market!
+  collateralAtRisk: [CollateralAtRiskDataPoint!]
+}
+
+type MarketOracleAccuracy {
+  market: Market!
+  averagePercentDifference: Float
+  maxPercentDifference: Float
+}
+
+type MarketStateReward {
+  yearlySupplyTokens: BigInt!
+  yearlyBorrowTokens: BigInt!
+  supplyApy: Float
+  supplyApr: Float
+  borrowApy: Float
+  borrowApr: Float
+  amountPerSuppliedToken: BigInt!
+  amountPerBorrowedToken: BigInt!
+  asset: Asset!
+}
+
+type PaginatedMetaMorphoAdapterFactories {
+  items: [MetaMorphoAdapterFactory!]
+  pageInfo: PageInfo
+}
+
+type PaginatedMorphoBlue {
+  items: [MorphoBlue!]
+  pageInfo: PageInfo
+}
+
+type PaginatedOracles {
+  items: [Oracle!]
+  pageInfo: PageInfo
+}
+
+type PaginatedOracleFeeds {
+  items: [OracleFeed!]
+  pageInfo: PageInfo
+}
+
+type PaginatedOracleVaults {
+  items: [OracleVault!]
+  pageInfo: PageInfo
+}
+
+type PublicAllocatorFlowCaps {
+  maxIn: BigInt!
+  maxOut: BigInt!
+  market: Market!
+}
+
+type PublicAllocatorConfig {
+  fee: BigInt!
+  accruedFee: BigInt!
+  admin: Address!
+  flowCaps: [PublicAllocatorFlowCaps!]!
+}
+
+type PublicAllocator {
+  id: ID!
+  address: Address!
+  creationBlockNumber: Int!
+  morphoBlue: MorphoBlue!
+}
+
+type PaginatedPublicAllocator {
+  items: [PublicAllocator!]
+  pageInfo: PageInfo
+}
+
+type PublicAllocatorReallocate {
+  id: ID!
+  timestamp: BigInt!
+  hash: HexString!
+  logIndex: Int!
+  blockNumber: BigInt!
+  sender: Address!
+  assets: BigInt!
+  type: PublicAllocatorReallocateType!
+  market: Market!
+  vault: Vault!
+  publicAllocator: PublicAllocator!
+}
+
+type PaginatedPublicAllocatorReallocates {
+  items: [PublicAllocatorReallocate!]
+  pageInfo: PageInfo
+}
+
+type SearchResults {
+  markets: [Market!]!
+  vaults: [Vault!]!
+}
+
+type PaginatedTransactions {
+  items: [Transaction!]
+  pageInfo: PageInfo
+}
+
+type PaginatedUsers {
+  items: [User!]
+  pageInfo: PageInfo
+}
+
+type VaultAdminEvent {
+  hash: HexString!
+  timestamp: BigInt!
+  type: String!
+  data: VaultAdminEventData
+}
+
+type SetCuratorEventData {
+  curatorAddress: Address!
+}
+
+type SetFeeEventData {
+  fee: BigInt!
+}
+
+type SetFeeRecipientEventData {
+  feeRecipient: Address!
+}
+
+type SetGuardianEventData {
+  guardian: Address!
+}
+
+type SetIsAllocatorEventData {
+  allocator: Address!
+  isAllocator: Boolean!
+}
+
+type SetSkimRecipientEventData {
+  skimRecipient: Address!
+}
+
+type SetSupplyQueueEventData {
+  supplyQueue: [Market!]!
+}
+
+type SetWithdrawQueueEventData {
+  withdrawQueue: [Market!]!
+}
+
+type SkimEventData {
+  asset: Asset!
+  amount: BigInt!
+}
+
+type CapEventData {
+  market: Market!
+  cap: BigInt!
+}
+
+type TimelockEventData {
+  timelock: BigInt!
+}
+
+type ReallocateSupplyEventData {
+  market: Market!
+  suppliedAssets: BigInt!
+  suppliedShares: BigInt!
+}
+
+type ReallocateWithdrawEventData {
+  market: Market!
+  withdrawnAssets: BigInt!
+  withdrawnShares: BigInt!
+}
+
+type OwnershipEventData {
+  owner: Address!
+}
+
+type RevokeCapEventData {
+  market: Market!
+}
+
+type RevokePendingMarketRemovalEventData {
+  market: Market!
+}
+
+type PaginatedVaultAdminEvent {
+  items: [VaultAdminEvent!]
+  pageInfo: PageInfo
+}
+
+type VaultFactory {
+  id: ID!
+  address: Address!
+  creationBlockNumber: Int!
+  chain: Chain!
+}
+
+type VaultState {
+  blockNumber: BigInt!
+  totalAssets: BigInt!
+  totalAssetsUsd: Float
+  totalSupply: BigInt!
+  apy: Float!
+  netApy: Float!
+  timestamp: BigInt!
+  block: Block!
+  allocation: [VaultAllocation!]!
+  id: ID!
+  sharePriceNumber: Float
+  sharePrice: BigInt
+  sharePriceUsd: Float
+  fee: Float!
+  lastTotalAssets: BigInt!
+  curator: Address!
+  feeRecipient: Address!
+  guardian: Address!
+  owner: Address!
+  skimRecipient: Address!
+  timelock: BigInt!
+  pendingOwner: Address
+  pendingGuardian: Address
+  pendingGuardianValidAt: BigInt
+  pendingTimelock: BigInt
+  pendingTimelockValidAt: BigInt
+  rewards: [VaultStateReward!]!
+  netApyWithoutRewards: Float!
+  curators: [Curator!]!
+  curatorMetadata(first: Int = 100, skip: Int = 0): PaginatedAddressMetadata
+  ownerMetadata(first: Int = 100, skip: Int = 0): PaginatedAddressMetadata
+  guardianMetadata(first: Int = 100, skip: Int = 0): PaginatedAddressMetadata
+  pendingConfigs(first: Int = 100, skip: Int = 0, functionName_in: [VaultTimelockedFunctionName!]): PaginatedVaultPendingConfig!
+  avgApy: Float
+  avgNetApy: Float
+  dailyApy: Float
+  dailyNetApy: Float
+  weeklyApy: Float
+  weeklyNetApy: Float
+  biweeklyApy: Float
+  biweeklyNetApy: Float
+  monthlyApy: Float
+  monthlyNetApy: Float
+  quarterlyApy: Float
+  quarterlyNetApy: Float
+  yearlyApy: Float
+  yearlyNetApy: Float
+  allTimeApy: Float
+  allTimeNetApy: Float
+}
+
+type VaultHistory {
+  totalAssets(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  totalSupply(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  totalAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  apy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  netApyWithoutRewards(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  netApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  fee(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  curator(options: TimeseriesOptions = {}): [AddressDataPoint!]!
+  feeRecipient(options: TimeseriesOptions = {}): [AddressDataPoint!]!
+  guardian(options: TimeseriesOptions = {}): [AddressDataPoint!]!
+  owner(options: TimeseriesOptions = {}): [AddressDataPoint!]!
+  skimRecipient(options: TimeseriesOptions = {}): [AddressDataPoint!]!
+  allocation: [VaultAllocationHistory!]!
+  sharePriceNumber(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  sharePrice(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  sharePriceUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  dailyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  dailyNetApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  weeklyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  weeklyNetApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  monthlyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  monthlyNetApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  quarterlyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  quarterlyNetApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  yearlyApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  yearlyNetApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  allTimeApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  allTimeNetApy(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+}
+
+type VaultWarning {
+  type: String!
+  level: WarningLevel!
+  metadata: VaultWarningMetadata
+}
+
+type InvalidNameVaultWarningMetadata {
+  reason: String!
+}
+
+type InvalidSymbolVaultWarningMetadata {
+  reason: String!
+}
+
+type ShortTimelockVaultWarningMetadata {
+  timelock: BigInt!
+}
+
+type UnrecognizedDepositAssetVaultWarningMetadata {
+  asset: Asset!
+}
+
+type PaginatedMetaMorphos {
+  items: [Vault!]
+  pageInfo: PageInfo
+}
+
+type VaultAllocation {
+  blockNumber: BigInt!
+  supplyAssets: BigInt!
+  supplyAssetsUsd: Float
+  supplyShares: BigInt!
+  supplyCap: BigInt!
+  supplyCapUsd: Float
+  supplyQueueIndex: Int
+  withdrawQueueIndex: Int
+  id: ID!
+  pendingSupplyCap: BigInt
+  pendingSupplyCapValidAt: BigInt
+  pendingSupplyCapUsd: Float
+  removableAt: BigInt
+  enabled: Boolean!
+  block: Block
+  market: Market!
+}
+
+type VaultAllocationHistory {
+  market: Market!
+  supplyAssets(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  supplyAssetsUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+  supplyCap(options: TimeseriesOptions = {}): [BigIntDataPoint!]!
+  supplyCapUsd(options: TimeseriesOptions = {}): [FloatDataPoint!]!
+}
+
+type PaginatedMetaMorphoFactories {
+  items: [VaultFactory!]
+  pageInfo: PageInfo
+}
+
+type PaginatedMetaMorphoPositions {
+  items: [VaultPosition!]
+  pageInfo: PageInfo
+}
+
+type VaultReallocate {
+  id: ID!
+  timestamp: BigInt!
+  hash: HexString!
+  logIndex: Int!
+  blockNumber: BigInt!
+  caller: Address!
+  shares: BigInt!
+  assets: BigInt!
+  type: VaultReallocateType!
+  market: Market!
+  vault: Vault!
+}
+
+type PaginatedVaultReallocates {
+  items: [VaultReallocate!]
+  pageInfo: PageInfo
+}
+
+type VaultPendingConfig {
+  validAt: BigInt!
+  functionName: VaultTimelockedFunctionName!
+  decodedData: VaultPendingConfigDecodedData!
+  txHash: HexString!
+}
+
+type VaultSetCapPendingData {
+  supplyCap: BigInt!
+  market: Market
+}
+
+type VaultSetTimelockPendingData {
+  timelock: BigInt!
+}
+
+type VaultSetGuardianPendingData {
+  guardian: Account!
+}
+
+type VaultRemoveMarketPendingData {
+  market: Market
+  caller: Account!
+}
+
+type PaginatedVaultPendingConfig {
+  items: [VaultPendingConfig!]
+  pageInfo: PageInfo
+}
+
+type VaultV2Factory {
+  id: ID!
+  chain: Chain!
+  address: Address!
+  creationBlockNumber: BigInt!
+}
+
+type PaginatedVaultV2s {
+  items: [VaultV2!]
+  pageInfo: PageInfo
+}
+
+type PaginatedVaultV2Factories {
+  items: [VaultV2Factory!]
+  pageInfo: PageInfo
+}
+
+type VaultV2Transaction {
+  chain: Chain!
+  txHash: HexString!
+  vault: VaultV2!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  shares: BigInt!
+  txIndex: Int!
+  logIndex: Int!
+  type: VaultV2TransactionType!
+  data: VaultV2TransactionData!
+}
+
+type VaultV2DepositData {
+  assets: BigInt!
+  sender: String!
+  onBehalf: String!
+}
+
+type VaultV2WithdrawData {
+  assets: BigInt!
+  sender: String!
+  receiver: String!
+  onBehalf: String!
+}
+
+type VaultV2TransferData {
+  from: String!
+  to: String!
+}
+
+type PaginatedVaultV2Transactions {
+  items: [VaultV2Transaction!]
+  pageInfo: PageInfo
+}
+
+type Query {
+  chain(id: Int!): Chain!
+  chains: [Chain!]!
+  asset(id: String!): Asset!
+  assetByAddress(address: String!, chainId: Int = 1): Asset!
+  assets(first: Int = 100, skip: Int = 0, where: AssetsFilters, orderBy: AssetOrderBy = Address, orderDirection: OrderDirection): PaginatedAssets!
+  transaction(id: String!): Transaction!
+  transactionByHash(hash: String!, chainId: Int = 1): Transaction!
+  transactions(first: Int = 100, skip: Int = 0, orderBy: TransactionsOrderBy = Timestamp, orderDirection: OrderDirection, where: TransactionFilters): PaginatedTransactions!
+  user(id: String!): User!
+  userByAddress(address: String!, chainId: Int = 1): User!
+  users(first: Int = 100, skip: Int = 0, orderBy: UsersOrderBy = Address, orderDirection: OrderDirection, where: UsersFilters): PaginatedUsers!
+  marketCollateralAtRisk(uniqueKey: String!, chainId: Int = 1, numberOfPoints: Float = 100): MarketCollateralAtRisk!
+  market(id: String!): Market!
+  marketByUniqueKey(uniqueKey: String!, chainId: Int = 1): Market!
+  marketAverageApys(uniqueKey: String!, chainId: Int = 1): MarketApyAggregates
+  markets(first: Int = 100, skip: Int = 0, orderBy: MarketOrderBy = UniqueKey, orderDirection: OrderDirection, where: MarketFilters): PaginatedMarkets!
+  curator(id: String!): Curator!
+  curators(first: Int = 100, skip: Int = 0, where: CuratorFilters): PaginatedCurators!
+  marketOracleAccuracy(marketId: String!, options: TimeseriesOptions = {}): MarketOracleAccuracy!
+  morphoBlue(id: String!): MorphoBlue!
+  morphoBlueByAddress(address: String!, chainId: Int = 1): MorphoBlue!
+  morphoBlues(first: Int = 100, skip: Int = 0, orderBy: MorphoBlueOrderBy = Address, orderDirection: OrderDirection, where: MorphoBlueFilters): PaginatedMorphoBlue!
+  marketPosition(userAddress: String!, marketUniqueKey: String!, chainId: Int = 1): MarketPosition!
+  marketPositions(first: Int = 100, skip: Int = 0, orderBy: MarketPositionOrderBy = SupplyShares, orderDirection: OrderDirection, where: MarketPositionFilters): PaginatedMarketPositions!
+  oracleFeedByAddress(address: String!, chainId: Int = 1): OracleFeed!
+  oracleFeeds(first: Int = 100, skip: Int = 0, where: OracleFeedsFilters): PaginatedOracleFeeds!
+  oracleVaultByAddress(address: String!, chainId: Int = 1): OracleVault!
+  oracleVaults(first: Int = 100, skip: Int = 0, where: OracleVaultsFilters): PaginatedOracleVaults!
+  oracleByAddress(address: String!, chainId: Int = 1): Oracle!
+  oracles(first: Int = 100, skip: Int = 0, where: OraclesFilters): PaginatedOracles!
+  publicAllocator(address: String!, chainId: Int = 1): PublicAllocator!
+  publicAllocators(first: Int = 100, skip: Int = 0, orderBy: PublicAllocatorOrderBy = Address, orderDirection: OrderDirection, where: PublicAllocatorFilters): PaginatedPublicAllocator!
+  publicAllocatorReallocates(first: Int = 100, skip: Int = 0, orderBy: PublicAllocatorReallocateOrderBy = Timestamp, orderDirection: OrderDirection, where: PublicallocatorReallocateFilters): PaginatedPublicAllocatorReallocates!
+  search(search: String!, marketOrderBy: MarketOrderBy = SupplyAssetsUsd, vaultOrderBy: VaultOrderBy = TotalAssetsUsd, numberOfResults: Int = 5, skip: Int = 0, chainId_in: [Int!]): SearchResults!
+  vaultFactory(id: String!): VaultFactory!
+  vaultFactoryByAddress(address: String!, chainId: Int = 1): VaultFactory!
+  vaultFactories: PaginatedMetaMorphoFactories!
+  vault(id: String!): Vault!
+  vaultByAddress(address: String!, chainId: Int = 1): Vault!
+  vaults(first: Int = 100, skip: Int = 0, orderBy: VaultOrderBy = Address, orderDirection: OrderDirection, where: VaultFilters): PaginatedMetaMorphos!
+  vaultPosition(userAddress: String!, vaultAddress: String!, chainId: Int = 1): VaultPosition!
+  vaultPositions(first: Int = 100, skip: Int = 0, orderBy: VaultPositionOrderBy = Shares, orderDirection: OrderDirection, where: VaultPositionFilters): PaginatedMetaMorphoPositions!
+  vaultReallocates(first: Int = 100, skip: Int = 0, orderBy: VaultReallocateOrderBy = Timestamp, orderDirection: OrderDirection, where: VaultReallocateFilters): PaginatedVaultReallocates!
+  vaultV2Factories: PaginatedVaultV2Factories!
+  vaultV2MetaMorphoAdapterFactories: PaginatedMetaMorphoAdapterFactories!
+  vaultV2s(first: Int = 100, skip: Int = 0, where: VaultV2sFilters, orderBy: VaultV2OrderBy = Address, orderDirection: OrderDirection): PaginatedVaultV2s!
+  vaultV2ByAddress(address: String!, chainId: Int!): VaultV2!
+  _crossVersionVaults(orderBy: VaultOrderBy = Address, orderDirection: OrderDirection, where: _CrossVersionVaultFilters, first: Int = 100, skip: Int = 0): _PaginatedCrossVersionVault!
+  vaultV2PositionByAddress(userAddress: String!, vaultAddress: String!, chainId: Int!): VaultV2Position!
+  vaultV2transactions(first: Int = 100, skip: Int = 0, orderBy: VaultV2TransactionOrderBy = Time, orderDirection: OrderDirection, where: VaultV2TransactionFilters): PaginatedVaultV2Transactions!
+}
