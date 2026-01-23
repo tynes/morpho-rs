@@ -1,5 +1,6 @@
 //! Error types for the Morpho API client.
 
+use alloy_primitives::U256;
 use thiserror::Error;
 
 /// Errors that can occur when using the Morpho API client.
@@ -28,6 +29,22 @@ pub enum ApiError {
     /// Invalid chain ID.
     #[error("Invalid chain ID: {0}")]
     InvalidChainId(i64),
+
+    /// RPC connection failed.
+    #[error("RPC connection failed: {0}")]
+    RpcConnection(String),
+
+    /// Transaction failed.
+    #[error("Transaction failed: {0}")]
+    TransactionFailed(String),
+
+    /// Insufficient balance.
+    #[error("Insufficient balance: have {have}, need {need}")]
+    InsufficientBalance { have: U256, need: U256 },
+
+    /// Invalid private key.
+    #[error("Invalid private key")]
+    InvalidPrivateKey,
 }
 
 /// Result type alias for API operations.

@@ -8,7 +8,10 @@ use anyhow::Result;
 use clap::Parser;
 
 use cli::{Cli, Commands, VaultV1Subcommand, VaultV2Subcommand};
-use commands::{run_positions, run_v1_info, run_v1_list, run_v2_info, run_v2_list};
+use commands::{
+    run_positions, run_v1_deposit, run_v1_info, run_v1_list, run_v1_withdraw, run_v2_deposit,
+    run_v2_info, run_v2_list, run_v2_withdraw,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -22,6 +25,12 @@ async fn main() -> Result<()> {
             VaultV1Subcommand::Info(args) => {
                 run_v1_info(&args, cli.format).await?;
             }
+            VaultV1Subcommand::Deposit(args) => {
+                run_v1_deposit(&args).await?;
+            }
+            VaultV1Subcommand::Withdraw(args) => {
+                run_v1_withdraw(&args).await?;
+            }
         },
         Commands::VaultV2 { subcommand } => match subcommand {
             VaultV2Subcommand::List(args) => {
@@ -29,6 +38,12 @@ async fn main() -> Result<()> {
             }
             VaultV2Subcommand::Info(args) => {
                 run_v2_info(&args, cli.format).await?;
+            }
+            VaultV2Subcommand::Deposit(args) => {
+                run_v2_deposit(&args).await?;
+            }
+            VaultV2Subcommand::Withdraw(args) => {
+                run_v2_withdraw(&args).await?;
             }
         },
         Commands::Positions(args) => {

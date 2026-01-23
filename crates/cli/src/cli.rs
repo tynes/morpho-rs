@@ -43,6 +43,10 @@ pub enum VaultV1Subcommand {
     List(ListArgs),
     /// Get detailed info for a specific V1 vault
     Info(InfoArgs),
+    /// Deposit assets into a V1 vault
+    Deposit(DepositArgs),
+    /// Withdraw assets from a V1 vault
+    Withdraw(WithdrawArgs),
 }
 
 #[derive(Subcommand, Debug)]
@@ -51,6 +55,10 @@ pub enum VaultV2Subcommand {
     List(ListArgs),
     /// Get detailed info for a specific V2 vault
     Info(InfoArgs),
+    /// Deposit assets into a V2 vault
+    Deposit(DepositArgs),
+    /// Withdraw assets from a V2 vault
+    Withdraw(WithdrawArgs),
 }
 
 #[derive(Parser, Debug)]
@@ -90,6 +98,48 @@ pub struct PositionsArgs {
     /// Chain to query (omit to query all chains)
     #[arg(long)]
     pub chain: Option<ChainArg>,
+}
+
+#[derive(Parser, Debug)]
+pub struct DepositArgs {
+    /// Vault contract address
+    pub vault: String,
+
+    /// Amount to deposit in human-readable units (e.g., "100.5")
+    pub amount: String,
+
+    /// Chain the vault is on
+    #[arg(long)]
+    pub chain: ChainArg,
+
+    /// Private key for signing transactions (can also use MORPHO_PRIVATE_KEY env var)
+    #[arg(long, env = "MORPHO_PRIVATE_KEY")]
+    pub private_key: String,
+
+    /// RPC URL for the target chain
+    #[arg(long)]
+    pub rpc_url: String,
+}
+
+#[derive(Parser, Debug)]
+pub struct WithdrawArgs {
+    /// Vault contract address
+    pub vault: String,
+
+    /// Amount to withdraw in human-readable units (e.g., "100.5")
+    pub amount: String,
+
+    /// Chain the vault is on
+    #[arg(long)]
+    pub chain: ChainArg,
+
+    /// Private key for signing transactions (can also use MORPHO_PRIVATE_KEY env var)
+    #[arg(long, env = "MORPHO_PRIVATE_KEY")]
+    pub private_key: String,
+
+    /// RPC URL for the target chain
+    #[arg(long)]
+    pub rpc_url: String,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, Default)]
