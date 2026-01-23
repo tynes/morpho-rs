@@ -108,9 +108,9 @@ pub struct DepositArgs {
     /// Amount to deposit in human-readable units (e.g., "100.5")
     pub amount: String,
 
-    /// Chain the vault is on
+    /// Chain the vault is on (optional, not used for transaction routing)
     #[arg(long)]
-    pub chain: ChainArg,
+    pub chain: Option<ChainArg>,
 
     /// Private key for signing transactions (can also use PRIVATE_KEY env var)
     #[arg(long, env = "PRIVATE_KEY")]
@@ -129,9 +129,9 @@ pub struct WithdrawArgs {
     /// Amount to withdraw in human-readable units (e.g., "100.5")
     pub amount: String,
 
-    /// Chain the vault is on
+    /// Chain the vault is on (optional, not used for transaction routing)
     #[arg(long)]
-    pub chain: ChainArg,
+    pub chain: Option<ChainArg>,
 
     /// Private key for signing transactions (can also use PRIVATE_KEY env var)
     #[arg(long, env = "PRIVATE_KEY")]
@@ -193,6 +193,7 @@ impl FromStr for ChainArg {
             "cronos" | "25" => Chain::CronosMainnet,
             "celo" | "42220" => Chain::CeloMainnet,
             "abstract" | "2741" => Chain::AbstractMainnet,
+            "sepolia" | "11155111" => Chain::Sepolia,
             _ => return Err(format!("Unknown chain: {}", s)),
         };
         Ok(ChainArg(chain))

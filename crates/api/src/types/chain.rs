@@ -35,6 +35,7 @@ pub enum Chain {
     CronosMainnet,
     CeloMainnet,
     AbstractMainnet,
+    Sepolia,
 }
 
 impl Chain {
@@ -70,6 +71,7 @@ impl Chain {
             Chain::CronosMainnet => 25,
             Chain::CeloMainnet => 42220,
             Chain::AbstractMainnet => 2741,
+            Chain::Sepolia => 11155111,
         }
     }
 
@@ -105,6 +107,7 @@ impl Chain {
             Chain::CronosMainnet => "cronos",
             Chain::CeloMainnet => "celo",
             Chain::AbstractMainnet => "abstract",
+            Chain::Sepolia => "sepolia",
         }
     }
 
@@ -140,6 +143,7 @@ impl Chain {
             25 => Some(Chain::CronosMainnet),
             42220 => Some(Chain::CeloMainnet),
             2741 => Some(Chain::AbstractMainnet),
+            11155111 => Some(Chain::Sepolia),
             _ => None,
         }
     }
@@ -176,6 +180,7 @@ impl Chain {
             Chain::CronosMainnet,
             Chain::CeloMainnet,
             Chain::AbstractMainnet,
+            Chain::Sepolia,
         ]
     }
 }
