@@ -32,6 +32,10 @@ pub enum ApiError {
     /// Contract error.
     #[error("Contract error: {0}")]
     Contract(#[from] morpho_rs_contracts::ContractError),
+
+    /// Transaction support not configured.
+    #[error("Transaction support not configured: RPC URL and private key required")]
+    TransactionNotConfigured,
 }
 
 /// Result type alias for API operations.

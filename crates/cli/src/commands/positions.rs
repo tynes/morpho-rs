@@ -2,13 +2,13 @@
 
 use alloy_primitives::Address;
 use anyhow::Result;
-use morpho_rs_api::{UserVaultPositions, VaultClient};
+use morpho_rs_api::{MorphoClient, UserVaultPositions};
 
 use crate::cli::{OutputFormat, PositionsArgs};
 use crate::output::format_user_positions;
 
 pub async fn run_positions(args: &PositionsArgs, format: OutputFormat) -> Result<()> {
-    let client = VaultClient::new();
+    let client = MorphoClient::new();
 
     let chain = args.chain.map(|c| c.0);
 

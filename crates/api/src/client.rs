@@ -1,6 +1,9 @@
 //! Vault client implementations for V1 and V2 vaults.
 
+use alloy::primitives::{Address, U256};
+use alloy::rpc::types::TransactionReceipt;
 use graphql_client::{GraphQLQuery, Response};
+use morpho_rs_contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
 use reqwest::Client;
 use url::Url;
 
@@ -311,22 +314,22 @@ impl VaultV2Client {
     }
 }
 
-/// Combined client for querying both V1 and V2 vaults.
+/// Combined client for querying both V1 and V2 vaults via the GraphQL API.
 #[derive(Debug, Clone)]
-pub struct VaultClient {
+pub struct MorphoApiClient {
     /// V1 vault client.
     pub v1: VaultV1Client,
     /// V2 vault client.
     pub v2: VaultV2Client,
 }
 
-impl Default for VaultClient {
+impl Default for MorphoApiClient {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl VaultClient {
+impl MorphoApiClient {
     /// Create a new combined vault client with default configuration.
     pub fn new() -> Self {
         Self {
@@ -564,6 +567,317 @@ impl VaultClient {
             vault_v2_positions,
             market_positions,
         })
+    }
+}
+
+/// Configuration for the unified MorphoClient.
+#[derive(Debug, Clone, Default)]
+pub struct MorphoClientConfig {
+    /// API configuration.
+    pub api_config: Option<ClientConfig>,
+    /// RPC URL for on-chain interactions.
+    pub rpc_url: Option<String>,
+    /// Private key for signing transactions.
+    pub private_key: Option<String>,
+}
+
+impl MorphoClientConfig {
+    /// Create a new configuration with default values.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the API configuration.
+    pub fn with_api_config(mut self, config: ClientConfig) -> Self {
+        self.api_config = Some(config);
+        self
+    }
+
+    /// Set the RPC URL.
+    pub fn with_rpc_url(mut self, rpc_url: impl Into<String>) -> Self {
+        self.rpc_url = Some(rpc_url.into());
+        self
+    }
+
+    /// Set the private key.
+    pub fn with_private_key(mut self, private_key: impl Into<String>) -> Self {
+        self.private_key = Some(private_key.into());
+        self
+    }
+}
+
+/// Wrapper for V1 vault operations that automatically uses the signer's address.
+pub struct VaultV1Operations<'a> {
+    client: &'a VaultV1TransactionClient,
+}
+
+impl<'a> VaultV1Operations<'a> {
+    /// Create a new V1 operations wrapper.
+    fn new(client: &'a VaultV1TransactionClient) -> Self {
+        Self { client }
+    }
+
+    /// Deposit assets into a vault, receiving shares to the signer's address.
+    pub async fn deposit(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
+        let receipt = self
+            .client
+            .deposit(vault, amount, self.client.signer_address())
+            .await?;
+        Ok(receipt)
+    }
+
+    /// Withdraw assets from a vault to the signer's address (withdrawing signer's shares).
+    pub async fn withdraw(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
+        let signer = self.client.signer_address();
+        let receipt = self.client.withdraw(vault, amount, signer, signer).await?;
+        Ok(receipt)
+    }
+
+    /// Get the signer's vault share balance.
+    pub async fn balance(&self, vault: Address) -> Result<U256> {
+        let balance = self
+            .client
+            .get_balance(vault, self.client.signer_address())
+            .await?;
+        Ok(balance)
+    }
+
+    /// Approve a vault to spend the signer's tokens if needed.
+    /// Returns the transaction receipt if approval was performed, None if already approved.
+    pub async fn approve(
+        &self,
+        vault: Address,
+        amount: U256,
+    ) -> Result<Option<TransactionReceipt>> {
+        let asset = self.client.get_asset(vault).await?;
+        let receipt = self.client.approve_if_needed(asset, vault, amount).await?;
+        Ok(receipt)
+    }
+
+    /// Get the underlying asset address of a vault.
+    pub async fn get_asset(&self, vault: Address) -> Result<Address> {
+        let asset = self.client.get_asset(vault).await?;
+        Ok(asset)
+    }
+
+    /// Get the decimals of a token.
+    pub async fn get_decimals(&self, token: Address) -> Result<u8> {
+        let decimals = self.client.get_decimals(token).await?;
+        Ok(decimals)
+    }
+
+    /// Get the signer's address.
+    pub fn signer_address(&self) -> Address {
+        self.client.signer_address()
+    }
+}
+
+/// Wrapper for V2 vault operations that automatically uses the signer's address.
+pub struct VaultV2Operations<'a> {
+    client: &'a VaultV2TransactionClient,
+}
+
+impl<'a> VaultV2Operations<'a> {
+    /// Create a new V2 operations wrapper.
+    fn new(client: &'a VaultV2TransactionClient) -> Self {
+        Self { client }
+    }
+
+    /// Deposit assets into a vault, receiving shares to the signer's address.
+    pub async fn deposit(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
+        let receipt = self
+            .client
+            .deposit(vault, amount, self.client.signer_address())
+            .await?;
+        Ok(receipt)
+    }
+
+    /// Withdraw assets from a vault to the signer's address (withdrawing signer's shares).
+    pub async fn withdraw(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
+        let signer = self.client.signer_address();
+        let receipt = self.client.withdraw(vault, amount, signer, signer).await?;
+        Ok(receipt)
+    }
+
+    /// Get the signer's vault share balance.
+    pub async fn balance(&self, vault: Address) -> Result<U256> {
+        let balance = self
+            .client
+            .get_balance(vault, self.client.signer_address())
+            .await?;
+        Ok(balance)
+    }
+
+    /// Approve a vault to spend the signer's tokens if needed.
+    /// Returns the transaction receipt if approval was performed, None if already approved.
+    pub async fn approve(
+        &self,
+        vault: Address,
+        amount: U256,
+    ) -> Result<Option<TransactionReceipt>> {
+        let asset = self.client.get_asset(vault).await?;
+        let receipt = self.client.approve_if_needed(asset, vault, amount).await?;
+        Ok(receipt)
+    }
+
+    /// Get the underlying asset address of a vault.
+    pub async fn get_asset(&self, vault: Address) -> Result<Address> {
+        let asset = self.client.get_asset(vault).await?;
+        Ok(asset)
+    }
+
+    /// Get the decimals of a token.
+    pub async fn get_decimals(&self, token: Address) -> Result<u8> {
+        let decimals = self.client.get_decimals(token).await?;
+        Ok(decimals)
+    }
+
+    /// Get the signer's address.
+    pub fn signer_address(&self) -> Address {
+        self.client.signer_address()
+    }
+}
+
+/// Unified Morpho client combining API queries and on-chain transactions.
+///
+/// This client provides a namespace-style API for interacting with Morpho vaults:
+/// - `client.api()` - Access to GraphQL API queries
+/// - `client.vault_v1()` - V1 vault transaction operations
+/// - `client.vault_v2()` - V2 vault transaction operations
+///
+/// # Example
+///
+/// ```no_run
+/// use morpho_rs_api::{MorphoClient, MorphoClientConfig, Chain};
+/// use alloy::primitives::{Address, U256};
+///
+/// #[tokio::main]
+/// async fn main() -> Result<(), morpho_rs_api::ApiError> {
+///     // API-only client
+///     let client = MorphoClient::new();
+///     let vaults = client.get_vaults_by_chain(Chain::EthMainnet).await?;
+///
+///     // Full client with transaction support
+///     let config = MorphoClientConfig::new()
+///         .with_rpc_url("https://eth.llamarpc.com")
+///         .with_private_key("0x...");
+///     let client = MorphoClient::with_config(config)?;
+///
+///     // V1 vault operations
+///     let vault: Address = "0x...".parse().unwrap();
+///     let balance = client.vault_v1()?.balance(vault).await?;
+///
+///     Ok(())
+/// }
+/// ```
+pub struct MorphoClient {
+    api: MorphoApiClient,
+    vault_v1_tx: Option<VaultV1TransactionClient>,
+    vault_v2_tx: Option<VaultV2TransactionClient>,
+}
+
+impl Default for MorphoClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl MorphoClient {
+    /// Create a new MorphoClient with default API configuration (no transaction support).
+    pub fn new() -> Self {
+        Self {
+            api: MorphoApiClient::new(),
+            vault_v1_tx: None,
+            vault_v2_tx: None,
+        }
+    }
+
+    /// Create a MorphoClient with custom configuration.
+    ///
+    /// If both `rpc_url` and `private_key` are provided, transaction support is enabled.
+    pub fn with_config(config: MorphoClientConfig) -> Result<Self> {
+        let api = match config.api_config {
+            Some(api_config) => MorphoApiClient::with_config(api_config),
+            None => MorphoApiClient::new(),
+        };
+
+        let (vault_v1_tx, vault_v2_tx) = match (&config.rpc_url, &config.private_key) {
+            (Some(rpc_url), Some(private_key)) => {
+                let v1 = VaultV1TransactionClient::new(rpc_url, private_key)?;
+                let v2 = VaultV2TransactionClient::new(rpc_url, private_key)?;
+                (Some(v1), Some(v2))
+            }
+            _ => (None, None),
+        };
+
+        Ok(Self {
+            api,
+            vault_v1_tx,
+            vault_v2_tx,
+        })
+    }
+
+    /// Get V1 vault operations.
+    ///
+    /// Returns an error if transaction support is not configured.
+    pub fn vault_v1(&self) -> Result<VaultV1Operations<'_>> {
+        match &self.vault_v1_tx {
+            Some(client) => Ok(VaultV1Operations::new(client)),
+            None => Err(ApiError::TransactionNotConfigured),
+        }
+    }
+
+    /// Get V2 vault operations.
+    ///
+    /// Returns an error if transaction support is not configured.
+    pub fn vault_v2(&self) -> Result<VaultV2Operations<'_>> {
+        match &self.vault_v2_tx {
+            Some(client) => Ok(VaultV2Operations::new(client)),
+            None => Err(ApiError::TransactionNotConfigured),
+        }
+    }
+
+    /// Get the API client for GraphQL queries.
+    pub fn api(&self) -> &MorphoApiClient {
+        &self.api
+    }
+
+    /// Get vaults (V1 and V2) on a specific chain as unified Vault type.
+    pub async fn get_vaults_by_chain(&self, chain: Chain) -> Result<Vec<Vault>> {
+        self.api.get_vaults_by_chain(chain).await
+    }
+
+    /// Get whitelisted vaults (V1 and V2) as unified Vault type.
+    pub async fn get_whitelisted_vaults(&self, chain: Option<Chain>) -> Result<Vec<Vault>> {
+        self.api.get_whitelisted_vaults(chain).await
+    }
+
+    /// Get all vault positions (V1 and V2) for a user.
+    pub async fn get_user_vault_positions(
+        &self,
+        address: &str,
+        chain: Option<Chain>,
+    ) -> Result<UserVaultPositions> {
+        self.api.get_user_vault_positions(address, chain).await
+    }
+
+    /// Get complete account overview for a user on a specific chain.
+    pub async fn get_user_account_overview(
+        &self,
+        address: &str,
+        chain: Chain,
+    ) -> Result<UserAccountOverview> {
+        self.api.get_user_account_overview(address, chain).await
+    }
+
+    /// Check if transaction support is configured.
+    pub fn has_transaction_support(&self) -> bool {
+        self.vault_v1_tx.is_some()
+    }
+
+    /// Get the signer's address if transaction support is configured.
+    pub fn signer_address(&self) -> Option<Address> {
+        self.vault_v1_tx.as_ref().map(|c| c.signer_address())
     }
 }
 

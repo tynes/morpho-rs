@@ -1,28 +1,34 @@
 //! Morpho Vaults Rust API Library
 //!
 //! This crate provides a Rust client for querying Morpho V1 (MetaMorpho) and V2 vaults
-//! via their GraphQL API.
+//! via their GraphQL API, and executing on-chain transactions.
 //!
 //! # Example
 //!
 //! ```no_run
-//! use morpho_rs_api::{VaultClient, VaultV1Client, VaultV2Client, Chain, VaultFiltersV1};
+//! use morpho_rs_api::{MorphoClient, MorphoClientConfig, Chain};
+//! use alloy::primitives::{Address, U256};
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), morpho_rs_api::ApiError> {
-//!     // Use separate clients for V1 and V2
-//!     let v1_client = VaultV1Client::new();
-//!     let v2_client = VaultV2Client::new();
+//!     // API-only client (no transactions)
+//!     let client = MorphoClient::new();
+//!     let vaults = client.get_vaults_by_chain(Chain::EthMainnet).await?;
 //!
-//!     // Get whitelisted V1 vaults on Ethereum
-//!     let v1_vaults = v1_client.get_whitelisted_vaults(Some(Chain::EthMainnet)).await?;
+//!     // Full client with transaction support
+//!     let config = MorphoClientConfig::new()
+//!         .with_rpc_url("https://eth.llamarpc.com")
+//!         .with_private_key("0x...");
+//!     let client = MorphoClient::with_config(config)?;
 //!
-//!     // Get V2 vaults on Base
-//!     let v2_vaults = v2_client.get_vaults_by_chain(Chain::BaseMainnet).await?;
+//!     // V1 vault operations using bound signer address
+//!     let vault: Address = "0x...".parse().unwrap();
+//!     let balance = client.vault_v1()?.balance(vault).await?;
 //!
-//!     // Or use the combined client for unified queries
-//!     let client = VaultClient::new();
-//!     let all_vaults = client.get_whitelisted_vaults(Some(Chain::EthMainnet)).await?;
+//!     // Approve and deposit
+//!     let amount = U256::from(1000000);
+//!     client.vault_v1()?.approve(vault, amount).await?;
+//!     client.vault_v1()?.deposit(vault, amount).await?;
 //!
 //!     Ok(())
 //! }
@@ -35,7 +41,10 @@ pub mod queries;
 pub mod types;
 
 // Re-export main types at crate root
-pub use client::{ClientConfig, VaultClient, VaultV1Client, VaultV2Client, DEFAULT_API_URL};
+pub use client::{
+    ClientConfig, MorphoApiClient, MorphoClient, MorphoClientConfig, VaultV1Client,
+    VaultV1Operations, VaultV2Client, VaultV2Operations, DEFAULT_API_URL,
+};
 pub use error::{ApiError, Result};
 pub use filters::{VaultFiltersV1, VaultFiltersV2};
 pub use morpho_rs_contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
