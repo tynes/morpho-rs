@@ -1,6 +1,6 @@
 //! Detailed output formatting for single vault info.
 
-use api::{VaultV1, VaultV2};
+use morpho_rs_api::{VaultV1, VaultV2};
 use colored::Colorize;
 
 fn format_address(addr: &impl std::fmt::Display) -> String {

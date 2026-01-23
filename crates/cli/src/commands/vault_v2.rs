@@ -1,7 +1,7 @@
 //! V2 vault command implementations.
 
 use anyhow::Result;
-use api::{Chain, ClientConfig, VaultV2, VaultV2Client};
+use morpho_rs_api::{Chain, ClientConfig, VaultV2, VaultV2Client};
 
 use crate::cli::{InfoArgs, ListArgs, OutputFormat};
 use crate::output::{format_v2_vault_detail, format_v2_vaults_table};

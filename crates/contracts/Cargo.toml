@@ -1,9 +1,10 @@
 [package]
-name = "contracts"
+name = "morpho-rs-contracts"
 version = "0.1.0"
 edition = "2021"
 description = "Contract bindings and transaction clients for Morpho vaults"
 license = "MIT"
+repository = "https://github.com/tynes/morpho-rs"
 
 [dependencies]
 alloy = { version = "0.8", features = ["provider-http", "signer-local", "contract", "sol-types", "rpc-types"] }

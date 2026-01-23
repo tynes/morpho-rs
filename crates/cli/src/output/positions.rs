@@ -1,6 +1,6 @@
 //! Output formatting for user vault positions.
 
-use api::UserVaultPositions;
+use morpho_rs_api::UserVaultPositions;
 use tabled::{
     settings::{object::Rows, Alignment, Modify, Style},
     Table, Tabled,

@@ -1,6 +1,6 @@
 //! Table formatting for vault lists.
 
-use api::{VaultV1, VaultV2};
+use morpho_rs_api::{VaultV1, VaultV2};
 use tabled::{
     settings::{object::Rows, Alignment, Modify, Style},
     Table, Tabled,

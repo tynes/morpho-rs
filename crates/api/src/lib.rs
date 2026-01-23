@@ -6,10 +6,10 @@
 //! # Example
 //!
 //! ```no_run
-//! use api::{VaultClient, VaultV1Client, VaultV2Client, Chain, VaultFiltersV1};
+//! use morpho_rs_api::{VaultClient, VaultV1Client, VaultV2Client, Chain, VaultFiltersV1};
 //!
 //! #[tokio::main]
-//! async fn main() -> Result<(), api::ApiError> {
+//! async fn main() -> Result<(), morpho_rs_api::ApiError> {
 //!     // Use separate clients for V1 and V2
 //!     let v1_client = VaultV1Client::new();
 //!     let v2_client = VaultV2Client::new();
@@ -38,7 +38,7 @@ pub mod types;
 pub use client::{ClientConfig, VaultClient, VaultV1Client, VaultV2Client, DEFAULT_API_URL};
 pub use error::{ApiError, Result};
 pub use filters::{VaultFiltersV1, VaultFiltersV2};
-pub use contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
+pub use morpho_rs_contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
 pub use types::{
     Asset, Chain, MarketInfo, UserAccountOverview, UserMarketPosition, UserState,
     UserVaultPositions, UserVaultV1Position, UserVaultV2Position, Vault, VaultAdapter,

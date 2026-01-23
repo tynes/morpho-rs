@@ -636,24 +636,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
-name = "api"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "alloy-primitives",
- "contracts",
- "futures",
- "graphql_client",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "url",
- "wiremock",
-]
-
-[[package]]
 name = "ark-ff"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1167,17 +1149,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
-]
-
-[[package]]
-name = "contracts"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "alloy-primitives",
- "thiserror 2.0.18",
- "tokio",
- "url",
 ]
 
 [[package]]
@@ -2379,17 +2350,46 @@ dependencies = [
 ]
 
 [[package]]
-name = "morpho"
+name = "morpho-rs-api"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "alloy-primitives",
+ "futures",
+ "graphql_client",
+ "morpho-rs-contracts",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "url",
+ "wiremock",
+]
+
+[[package]]
+name = "morpho-rs-cli"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "anyhow",
- "api",
  "clap",
  "colored",
+ "morpho-rs-api",
  "serde_json",
  "tabled",
  "tokio",
+]
+
+[[package]]
+name = "morpho-rs-contracts"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "alloy-primitives",
+ "thiserror 2.0.18",
+ "tokio",
+ "url",
 ]
 
 [[package]]

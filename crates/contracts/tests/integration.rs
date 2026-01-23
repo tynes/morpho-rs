@@ -1,6 +1,6 @@
 //! Integration tests for the contracts crate.
 
-use contracts::{ContractError, VaultV1TransactionClient, VaultV2TransactionClient};
+use morpho_rs_contracts::{ContractError, VaultV1TransactionClient, VaultV2TransactionClient};
 
 #[test]
 fn test_v1_client_construction_with_valid_inputs() {
@@ -53,7 +53,7 @@ fn test_v2_client_invalid_rpc_url() {
 #[test]
 fn test_error_conversion() {
     // Test that errors can be used with ? operator
-    fn fallible() -> contracts::Result<()> {
+    fn fallible() -> morpho_rs_contracts::Result<()> {
         let _client = VaultV1TransactionClient::new("http://localhost:8545", "invalid")?;
         Ok(())
     }

@@ -6,11 +6,11 @@
 //! # Example
 //!
 //! ```no_run
-//! use contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
+//! use morpho_rs_contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
 //! use alloy::primitives::{Address, U256};
 //!
 //! #[tokio::main]
-//! async fn main() -> contracts::Result<()> {
+//! async fn main() -> morpho_rs_contracts::Result<()> {
 //!     let client = VaultV1TransactionClient::new(
 //!         "https://eth.llamarpc.com",
 //!         "0x...", // private key

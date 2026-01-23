@@ -31,7 +31,7 @@ pub enum ApiError {
 
     /// Contract error.
     #[error("Contract error: {0}")]
-    Contract(#[from] contracts::ContractError),
+    Contract(#[from] morpho_rs_contracts::ContractError),
 }
 
 /// Result type alias for API operations.

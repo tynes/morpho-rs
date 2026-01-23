@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use api::Chain;
+use morpho_rs_api::Chain;
 use clap::{Parser, Subcommand, ValueEnum};
 
 /// Morpho CLI - Query V1 and V2 vaults
