@@ -2351,7 +2351,7 @@ dependencies = [
 
 [[package]]
 name = "morpho-rs-api"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "alloy",
  "alloy-primitives",
@@ -2369,7 +2369,7 @@ dependencies = [
 
 [[package]]
 name = "morpho-rs-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -2383,7 +2383,7 @@ dependencies = [
 
 [[package]]
 name = "morpho-rs-contracts"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "alloy",
  "alloy-primitives",
