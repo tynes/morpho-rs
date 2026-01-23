@@ -32,14 +32,13 @@ pub mod client;
 pub mod error;
 pub mod filters;
 pub mod queries;
-pub mod tx;
 pub mod types;
 
 // Re-export main types at crate root
 pub use client::{ClientConfig, VaultClient, VaultV1Client, VaultV2Client, DEFAULT_API_URL};
 pub use error::{ApiError, Result};
 pub use filters::{VaultFiltersV1, VaultFiltersV2};
-pub use tx::{VaultV1TransactionClient, VaultV2TransactionClient};
+pub use contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
 pub use types::{
     Asset, Chain, MarketInfo, UserAccountOverview, UserMarketPosition, UserState,
     UserVaultPositions, UserVaultV1Position, UserVaultV2Position, Vault, VaultAdapter,

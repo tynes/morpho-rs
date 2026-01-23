@@ -1,55 +1,36 @@
-//! V2 Vault transaction client for executing deposits and withdrawals.
+//! V1 Vault transaction client for executing deposits and withdrawals.
 
 use alloy::{
-    network::{Ethereum, EthereumWallet},
+    network::EthereumWallet,
     primitives::{Address, U256},
-    providers::{
-        fillers::{
-            BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller,
-            WalletFiller,
-        },
-        Identity, ProviderBuilder, RootProvider,
-    },
+    providers::ProviderBuilder,
     rpc::types::TransactionReceipt,
     signers::local::PrivateKeySigner,
-    transports::http::{Client, Http},
 };
 
-use crate::error::{ApiError, Result};
-use crate::tx::erc20::IERC20;
-use crate::tx::erc4626::IERC4626;
+use crate::erc20::IERC20;
+use crate::erc4626::IERC4626;
+use crate::error::{ContractError, Result};
+use crate::provider::HttpProvider;
 
-/// The recommended fillers type from `with_recommended_fillers()`.
-type RecommendedFillers =
-    JoinFill<GasFiller, JoinFill<BlobGasFiller, JoinFill<NonceFiller, ChainIdFiller>>>;
-
-/// The concrete provider type used by the transaction client.
-/// This matches what `ProviderBuilder::new().with_recommended_fillers().wallet().on_http()` returns.
-pub type HttpProvider = FillProvider<
-    JoinFill<JoinFill<Identity, RecommendedFillers>, WalletFiller<EthereumWallet>>,
-    RootProvider<Http<Client>>,
-    Http<Client>,
-    Ethereum,
->;
-
-/// Client for executing transactions against V2 vaults.
-pub struct VaultV2TransactionClient {
+/// Client for executing transactions against V1 (MetaMorpho) vaults.
+pub struct VaultV1TransactionClient {
     provider: HttpProvider,
     signer_address: Address,
 }
 
-impl VaultV2TransactionClient {
-    /// Create a new V2 transaction client.
+impl VaultV1TransactionClient {
+    /// Create a new V1 transaction client.
     pub fn new(rpc_url: &str, private_key: &str) -> Result<Self> {
         let signer: PrivateKeySigner = private_key
             .parse()
-            .map_err(|_| ApiError::InvalidPrivateKey)?;
+            .map_err(|_| ContractError::InvalidPrivateKey)?;
         let signer_address = signer.address();
         let wallet = EthereumWallet::from(signer);
 
         let url: url::Url = rpc_url
             .parse()
-            .map_err(|e| ApiError::RpcConnection(format!("{}", e)))?;
+            .map_err(|e| ContractError::RpcConnection(format!("{}", e)))?;
 
         let provider = ProviderBuilder::new()
             .with_recommended_fillers()
@@ -69,29 +50,25 @@ impl VaultV2TransactionClient {
             .asset()
             .call()
             .await
-            .map_err(|e| ApiError::TransactionFailed(format!("Failed to get asset: {}", e)))?;
+            .map_err(|e| ContractError::TransactionFailed(format!("Failed to get asset: {}", e)))?;
         Ok(result._0)
     }
 
     /// Get the decimals of a token.
     pub async fn get_decimals(&self, token: Address) -> Result<u8> {
         let contract = IERC20::new(token, &self.provider);
-        let result = contract
-            .decimals()
-            .call()
-            .await
-            .map_err(|e| ApiError::TransactionFailed(format!("Failed to get decimals: {}", e)))?;
+        let result = contract.decimals().call().await.map_err(|e| {
+            ContractError::TransactionFailed(format!("Failed to get decimals: {}", e))
+        })?;
         Ok(result._0)
     }
 
     /// Get the balance of a token for an address.
     pub async fn get_balance(&self, token: Address, owner: Address) -> Result<U256> {
         let contract = IERC20::new(token, &self.provider);
-        let result = contract
-            .balanceOf(owner)
-            .call()
-            .await
-            .map_err(|e| ApiError::TransactionFailed(format!("Failed to get balance: {}", e)))?;
+        let result = contract.balanceOf(owner).call().await.map_err(|e| {
+            ContractError::TransactionFailed(format!("Failed to get balance: {}", e))
+        })?;
         Ok(result._0)
     }
 
@@ -103,11 +80,9 @@ impl VaultV2TransactionClient {
         spender: Address,
     ) -> Result<U256> {
         let contract = IERC20::new(token, &self.provider);
-        let result = contract
-            .allowance(owner, spender)
-            .call()
-            .await
-            .map_err(|e| ApiError::TransactionFailed(format!("Failed to get allowance: {}", e)))?;
+        let result = contract.allowance(owner, spender).call().await.map_err(|e| {
+            ContractError::TransactionFailed(format!("Failed to get allowance: {}", e))
+        })?;
         Ok(result._0)
     }
 
@@ -130,13 +105,12 @@ impl VaultV2TransactionClient {
         let contract = IERC20::new(token, &self.provider);
         let tx = contract.approve(spender, amount);
 
-        let pending = tx
-            .send()
-            .await
-            .map_err(|e| ApiError::TransactionFailed(format!("Failed to send approval: {}", e)))?;
+        let pending = tx.send().await.map_err(|e| {
+            ContractError::TransactionFailed(format!("Failed to send approval: {}", e))
+        })?;
 
         let receipt = pending.get_receipt().await.map_err(|e| {
-            ApiError::TransactionFailed(format!("Failed to get approval receipt: {}", e))
+            ContractError::TransactionFailed(format!("Failed to get approval receipt: {}", e))
         })?;
 
         Ok(Some(receipt))
@@ -153,13 +127,12 @@ impl VaultV2TransactionClient {
         let contract = IERC4626::new(vault, &self.provider);
         let tx = contract.deposit(amount, receiver);
 
-        let pending = tx
-            .send()
-            .await
-            .map_err(|e| ApiError::TransactionFailed(format!("Failed to send deposit: {}", e)))?;
+        let pending = tx.send().await.map_err(|e| {
+            ContractError::TransactionFailed(format!("Failed to send deposit: {}", e))
+        })?;
 
         let receipt = pending.get_receipt().await.map_err(|e| {
-            ApiError::TransactionFailed(format!("Failed to get deposit receipt: {}", e))
+            ContractError::TransactionFailed(format!("Failed to get deposit receipt: {}", e))
         })?;
 
         Ok(receipt)
@@ -177,13 +150,12 @@ impl VaultV2TransactionClient {
         let contract = IERC4626::new(vault, &self.provider);
         let tx = contract.withdraw(amount, receiver, owner);
 
-        let pending = tx
-            .send()
-            .await
-            .map_err(|e| ApiError::TransactionFailed(format!("Failed to send withdraw: {}", e)))?;
+        let pending = tx.send().await.map_err(|e| {
+            ContractError::TransactionFailed(format!("Failed to send withdraw: {}", e))
+        })?;
 
         let receipt = pending.get_receipt().await.map_err(|e| {
-            ApiError::TransactionFailed(format!("Failed to get withdraw receipt: {}", e))
+            ContractError::TransactionFailed(format!("Failed to get withdraw receipt: {}", e))
         })?;
 
         Ok(receipt)
@@ -192,5 +164,31 @@ impl VaultV2TransactionClient {
     /// Get the signer's address.
     pub fn signer_address(&self) -> Address {
         self.signer_address
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_invalid_private_key() {
+        let result = VaultV1TransactionClient::new("http://localhost:8545", "invalid_key");
+        assert!(matches!(result, Err(ContractError::InvalidPrivateKey)));
+    }
+
+    #[test]
+    fn test_invalid_rpc_url() {
+        // Valid private key (32 bytes hex)
+        let private_key = "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let result = VaultV1TransactionClient::new("not a valid url", private_key);
+        assert!(matches!(result, Err(ContractError::RpcConnection(_))));
+    }
+
+    #[test]
+    fn test_valid_construction() {
+        let private_key = "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let result = VaultV1TransactionClient::new("http://localhost:8545", private_key);
+        assert!(result.is_ok());
     }
 }

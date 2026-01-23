@@ -16,6 +16,7 @@ url = "2.5"
 alloy-primitives = { version = "0.8", features = ["serde"] }
 alloy = { version = "0.8", features = ["provider-http", "signer-local", "contract", "sol-types", "rpc-types"] }
 futures = "0.3"
+contracts = { path = "../contracts" }
 
 [dev-dependencies]
 wiremock = "0.6"

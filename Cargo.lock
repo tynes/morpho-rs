@@ -641,6 +641,7 @@ version = "0.1.0"
 dependencies = [
  "alloy",
  "alloy-primitives",
+ "contracts",
  "futures",
  "graphql_client",
  "reqwest 0.12.28",
@@ -1166,6 +1167,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
+]
+
+[[package]]
+name = "contracts"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "alloy-primitives",
+ "thiserror 2.0.18",
+ "tokio",
+ "url",
 ]
 
 [[package]]
