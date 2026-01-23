@@ -4,8 +4,11 @@ use alloy::{
     network::{Ethereum, EthereumWallet},
     primitives::{Address, U256},
     providers::{
-        fillers::{FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller},
-        Identity, Provider, ProviderBuilder, RootProvider,
+        fillers::{
+            BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller,
+            WalletFiller,
+        },
+        Identity, ProviderBuilder, RootProvider,
     },
     rpc::types::TransactionReceipt,
     signers::local::PrivateKeySigner,
@@ -16,21 +19,26 @@ use crate::error::{ApiError, Result};
 use crate::tx::erc20::IERC20;
 use crate::tx::erc4626::IERC4626;
 
+/// The recommended fillers type from `with_recommended_fillers()`.
+type RecommendedFillers =
+    JoinFill<GasFiller, JoinFill<BlobGasFiller, JoinFill<NonceFiller, ChainIdFiller>>>;
+
 /// The concrete provider type used by the transaction client.
+/// This matches what `ProviderBuilder::new().with_recommended_fillers().wallet().on_http()` returns.
 pub type HttpProvider = FillProvider<
-    JoinFill<JoinFill<JoinFill<Identity, GasFiller>, NonceFiller>, WalletFiller<EthereumWallet>>,
+    JoinFill<JoinFill<Identity, RecommendedFillers>, WalletFiller<EthereumWallet>>,
     RootProvider<Http<Client>>,
     Http<Client>,
     Ethereum,
 >;
 
 /// Client for executing transactions against V2 vaults.
-pub struct VaultV2TransactionClient<P> {
-    provider: P,
+pub struct VaultV2TransactionClient {
+    provider: HttpProvider,
     signer_address: Address,
 }
 
-impl VaultV2TransactionClient<HttpProvider> {
+impl VaultV2TransactionClient {
     /// Create a new V2 transaction client.
     pub fn new(rpc_url: &str, private_key: &str) -> Result<Self> {
         let signer: PrivateKeySigner = private_key
@@ -43,22 +51,15 @@ impl VaultV2TransactionClient<HttpProvider> {
             .parse()
             .map_err(|e| ApiError::RpcConnection(format!("{}", e)))?;
 
-        let provider = ProviderBuilder::new().wallet(wallet).on_http(url);
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(wallet)
+            .on_http(url);
 
         Ok(Self {
             provider,
             signer_address,
         })
-    }
-}
-
-impl<P: Provider + Clone> VaultV2TransactionClient<P> {
-    /// Create a new V2 transaction client with a custom provider.
-    pub fn with_provider(provider: P, signer_address: Address) -> Self {
-        Self {
-            provider,
-            signer_address,
-        }
     }
 
     /// Get the underlying asset address of a vault.

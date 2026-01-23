@@ -112,12 +112,12 @@ pub struct DepositArgs {
     #[arg(long)]
     pub chain: ChainArg,
 
-    /// Private key for signing transactions (can also use MORPHO_PRIVATE_KEY env var)
-    #[arg(long, env = "MORPHO_PRIVATE_KEY")]
+    /// Private key for signing transactions (can also use PRIVATE_KEY env var)
+    #[arg(long, env = "PRIVATE_KEY")]
     pub private_key: String,
 
-    /// RPC URL for the target chain
-    #[arg(long)]
+    /// RPC URL for the target chain (can also use ETH_RPC_URL env var)
+    #[arg(long, env = "ETH_RPC_URL")]
     pub rpc_url: String,
 }
 
@@ -133,12 +133,12 @@ pub struct WithdrawArgs {
     #[arg(long)]
     pub chain: ChainArg,
 
-    /// Private key for signing transactions (can also use MORPHO_PRIVATE_KEY env var)
-    #[arg(long, env = "MORPHO_PRIVATE_KEY")]
+    /// Private key for signing transactions (can also use PRIVATE_KEY env var)
+    #[arg(long, env = "PRIVATE_KEY")]
     pub private_key: String,
 
-    /// RPC URL for the target chain
-    #[arg(long)]
+    /// RPC URL for the target chain (can also use ETH_RPC_URL env var)
+    #[arg(long, env = "ETH_RPC_URL")]
     pub rpc_url: String,
 }
 
