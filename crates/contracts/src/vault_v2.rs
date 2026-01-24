@@ -4,13 +4,13 @@ use alloy::{
     network::EthereumWallet,
     primitives::{Address, U256},
     providers::ProviderBuilder,
-    rpc::types::TransactionReceipt,
     signers::local::PrivateKeySigner,
 };
 
 use crate::erc20::IERC20;
 use crate::erc4626::IERC4626;
 use crate::error::{ContractError, Result};
+use crate::prepared_call::PreparedCall;
 use crate::provider::HttpProvider;
 
 /// Client for executing transactions against V2 vaults.
@@ -86,14 +86,26 @@ impl VaultV2TransactionClient {
         Ok(result._0)
     }
 
+    /// Create a prepared approval transaction.
+    /// Returns a `PreparedCall` that can be sent or used with `MulticallBuilder`.
+    pub fn approve(
+        &self,
+        token: Address,
+        spender: Address,
+        amount: U256,
+    ) -> PreparedCall<'_, IERC20::approveCall> {
+        let call = IERC20::approveCall { spender, amount };
+        PreparedCall::new(token, call, U256::ZERO, &self.provider)
+    }
+
     /// Approve a spender to use tokens if needed.
-    /// Returns the transaction receipt if approval was needed, None otherwise.
+    /// Returns a `PreparedCall` if approval is needed, None otherwise.
     pub async fn approve_if_needed(
         &self,
         token: Address,
         spender: Address,
         amount: U256,
-    ) -> Result<Option<TransactionReceipt>> {
+    ) -> Result<Option<PreparedCall<'_, IERC20::approveCall>>> {
         let current_allowance = self
             .get_allowance(token, self.signer_address, spender)
             .await?;
@@ -102,63 +114,32 @@ impl VaultV2TransactionClient {
             return Ok(None);
         }
 
-        let contract = IERC20::new(token, &self.provider);
-        let tx = contract.approve(spender, amount);
-
-        let pending = tx.send().await.map_err(|e| {
-            ContractError::TransactionFailed(format!("Failed to send approval: {}", e))
-        })?;
-
-        let receipt = pending.get_receipt().await.map_err(|e| {
-            ContractError::TransactionFailed(format!("Failed to get approval receipt: {}", e))
-        })?;
-
-        Ok(Some(receipt))
+        Ok(Some(self.approve(token, spender, amount)))
     }
 
-    /// Deposit assets into a vault.
-    /// Returns the transaction receipt.
-    pub async fn deposit(
+    /// Create a prepared deposit transaction.
+    /// Returns a `PreparedCall` that can be sent or used with `MulticallBuilder`.
+    pub fn deposit(
         &self,
         vault: Address,
         amount: U256,
         receiver: Address,
-    ) -> Result<TransactionReceipt> {
-        let contract = IERC4626::new(vault, &self.provider);
-        let tx = contract.deposit(amount, receiver);
-
-        let pending = tx.send().await.map_err(|e| {
-            ContractError::TransactionFailed(format!("Failed to send deposit: {}", e))
-        })?;
-
-        let receipt = pending.get_receipt().await.map_err(|e| {
-            ContractError::TransactionFailed(format!("Failed to get deposit receipt: {}", e))
-        })?;
-
-        Ok(receipt)
+    ) -> PreparedCall<'_, IERC4626::depositCall> {
+        let call = IERC4626::depositCall { assets: amount, receiver };
+        PreparedCall::new(vault, call, U256::ZERO, &self.provider)
     }
 
-    /// Withdraw assets from a vault.
-    /// Returns the transaction receipt.
-    pub async fn withdraw(
+    /// Create a prepared withdraw transaction.
+    /// Returns a `PreparedCall` that can be sent or used with `MulticallBuilder`.
+    pub fn withdraw(
         &self,
         vault: Address,
         amount: U256,
         receiver: Address,
         owner: Address,
-    ) -> Result<TransactionReceipt> {
-        let contract = IERC4626::new(vault, &self.provider);
-        let tx = contract.withdraw(amount, receiver, owner);
-
-        let pending = tx.send().await.map_err(|e| {
-            ContractError::TransactionFailed(format!("Failed to send withdraw: {}", e))
-        })?;
-
-        let receipt = pending.get_receipt().await.map_err(|e| {
-            ContractError::TransactionFailed(format!("Failed to get withdraw receipt: {}", e))
-        })?;
-
-        Ok(receipt)
+    ) -> PreparedCall<'_, IERC4626::withdrawCall> {
+        let call = IERC4626::withdrawCall { assets: amount, receiver, owner };
+        PreparedCall::new(vault, call, U256::ZERO, &self.provider)
     }
 
     /// Get the signer's address.

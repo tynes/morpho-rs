@@ -55,7 +55,7 @@ pub async fn run_v1_withdraw(args: &WithdrawArgs) -> Result<()> {
     println!("\nTransaction submitted: withdrawing {} from vault...", args.amount);
     println!("Waiting for confirmation...\n");
 
-    let receipt = client.withdraw(vault, amount, signer, signer).await?;
+    let receipt = client.withdraw(vault, amount, signer, signer).send().await?;
 
     println!("Transaction confirmed!");
     println!("  Tx Hash:   {:#x}", receipt.transaction_hash);
@@ -88,7 +88,7 @@ pub async fn run_v2_withdraw(args: &WithdrawArgs) -> Result<()> {
     println!("\nTransaction submitted: withdrawing {} from vault...", args.amount);
     println!("Waiting for confirmation...\n");
 
-    let receipt = client.withdraw(vault, amount, signer, signer).await?;
+    let receipt = client.withdraw(vault, amount, signer, signer).send().await?;
 
     println!("Transaction confirmed!");
     println!("  Tx Hash:   {:#x}", receipt.transaction_hash);

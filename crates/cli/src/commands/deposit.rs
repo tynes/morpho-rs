@@ -64,7 +64,8 @@ pub async fn run_v1_deposit(args: &DepositArgs) -> Result<()> {
     }
 
     println!("Checking allowance...");
-    if let Some(approval_receipt) = client.approve_if_needed(asset, vault, amount).await? {
+    if let Some(approval) = client.approve_if_needed(asset, vault, amount).await? {
+        let approval_receipt = approval.send().await?;
         println!("Approval transaction confirmed!");
         println!("  Block:     {}", approval_receipt.block_number.unwrap_or_default());
         println!(
@@ -76,7 +77,7 @@ pub async fn run_v1_deposit(args: &DepositArgs) -> Result<()> {
     println!("\nTransaction submitted: depositing {} to vault...", args.amount);
     println!("Waiting for confirmation...\n");
 
-    let receipt = client.deposit(vault, amount, signer).await?;
+    let receipt = client.deposit(vault, amount, signer).send().await?;
 
     println!("Transaction confirmed!");
     println!("  Tx Hash:   {:#x}", receipt.transaction_hash);
@@ -118,7 +119,8 @@ pub async fn run_v2_deposit(args: &DepositArgs) -> Result<()> {
     }
 
     println!("Checking allowance...");
-    if let Some(approval_receipt) = client.approve_if_needed(asset, vault, amount).await? {
+    if let Some(approval) = client.approve_if_needed(asset, vault, amount).await? {
+        let approval_receipt = approval.send().await?;
         println!("Approval transaction confirmed!");
         println!("  Block:     {}", approval_receipt.block_number.unwrap_or_default());
         println!(
@@ -130,7 +132,7 @@ pub async fn run_v2_deposit(args: &DepositArgs) -> Result<()> {
     println!("\nTransaction submitted: depositing {} to vault...", args.amount);
     println!("Waiting for confirmation...\n");
 
-    let receipt = client.deposit(vault, amount, signer).await?;
+    let receipt = client.deposit(vault, amount, signer).send().await?;
 
     println!("Transaction confirmed!");
     println!("  Tx Hash:   {:#x}", receipt.transaction_hash);

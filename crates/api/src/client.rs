@@ -924,13 +924,16 @@ impl<'a> VaultV1Operations<'a> {
                 .await?;
             if current_allowance < amount {
                 let needed = amount - current_allowance;
-                self.client.approve_if_needed(asset, vault, needed).await?;
+                if let Some(approval) = self.client.approve_if_needed(asset, vault, needed).await? {
+                    approval.send().await?;
+                }
             }
         }
 
         let receipt = self
             .client
             .deposit(vault, amount, self.client.signer_address())
+            .send()
             .await?;
         Ok(receipt)
     }
@@ -938,7 +941,7 @@ impl<'a> VaultV1Operations<'a> {
     /// Withdraw assets from a vault to the signer's address (withdrawing signer's shares).
     pub async fn withdraw(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
         let signer = self.client.signer_address();
-        let receipt = self.client.withdraw(vault, amount, signer, signer).await?;
+        let receipt = self.client.withdraw(vault, amount, signer, signer).send().await?;
         Ok(receipt)
     }
 
@@ -959,8 +962,12 @@ impl<'a> VaultV1Operations<'a> {
         amount: U256,
     ) -> Result<Option<TransactionReceipt>> {
         let asset = self.client.get_asset(vault).await?;
-        let receipt = self.client.approve_if_needed(asset, vault, amount).await?;
-        Ok(receipt)
+        if let Some(approval) = self.client.approve_if_needed(asset, vault, amount).await? {
+            let receipt = approval.send().await?;
+            Ok(Some(receipt))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get the current allowance for the vault to spend the signer's tokens.
@@ -1021,13 +1028,16 @@ impl<'a> VaultV2Operations<'a> {
                 .await?;
             if current_allowance < amount {
                 let needed = amount - current_allowance;
-                self.client.approve_if_needed(asset, vault, needed).await?;
+                if let Some(approval) = self.client.approve_if_needed(asset, vault, needed).await? {
+                    approval.send().await?;
+                }
             }
         }
 
         let receipt = self
             .client
             .deposit(vault, amount, self.client.signer_address())
+            .send()
             .await?;
         Ok(receipt)
     }
@@ -1035,7 +1045,7 @@ impl<'a> VaultV2Operations<'a> {
     /// Withdraw assets from a vault to the signer's address (withdrawing signer's shares).
     pub async fn withdraw(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
         let signer = self.client.signer_address();
-        let receipt = self.client.withdraw(vault, amount, signer, signer).await?;
+        let receipt = self.client.withdraw(vault, amount, signer, signer).send().await?;
         Ok(receipt)
     }
 
@@ -1056,8 +1066,12 @@ impl<'a> VaultV2Operations<'a> {
         amount: U256,
     ) -> Result<Option<TransactionReceipt>> {
         let asset = self.client.get_asset(vault).await?;
-        let receipt = self.client.approve_if_needed(asset, vault, amount).await?;
-        Ok(receipt)
+        if let Some(approval) = self.client.approve_if_needed(asset, vault, amount).await? {
+            let receipt = approval.send().await?;
+            Ok(Some(receipt))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get the current allowance for the vault to spend the signer's tokens.

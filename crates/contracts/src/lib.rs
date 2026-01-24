@@ -27,11 +27,13 @@
 pub mod erc20;
 pub mod erc4626;
 pub mod error;
+pub mod prepared_call;
 pub mod provider;
 pub mod vault_v1;
 pub mod vault_v2;
 
 pub use error::{ContractError, Result};
+pub use prepared_call::PreparedCall;
 pub use provider::HttpProvider;
 pub use vault_v1::VaultV1TransactionClient;
 pub use vault_v2::VaultV2TransactionClient;
