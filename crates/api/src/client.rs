@@ -841,7 +841,7 @@ impl MorphoApiClient {
 }
 
 /// Configuration for the unified MorphoClient.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct MorphoClientConfig {
     /// API configuration.
     pub api_config: Option<ClientConfig>,
@@ -849,6 +849,21 @@ pub struct MorphoClientConfig {
     pub rpc_url: Option<String>,
     /// Private key for signing transactions.
     pub private_key: Option<String>,
+    /// Whether to automatically approve tokens before deposit if allowance is insufficient.
+    /// When true, approves the exact minimal amount needed for the deposit.
+    /// Defaults to true.
+    pub auto_approve: bool,
+}
+
+impl Default for MorphoClientConfig {
+    fn default() -> Self {
+        Self {
+            api_config: None,
+            rpc_url: None,
+            private_key: None,
+            auto_approve: true,
+        }
+    }
 }
 
 impl MorphoClientConfig {
@@ -874,21 +889,45 @@ impl MorphoClientConfig {
         self.private_key = Some(private_key.into());
         self
     }
+
+    /// Set whether to automatically approve tokens before deposit.
+    /// When true, approves the exact minimal amount needed for the deposit.
+    /// Defaults to true.
+    pub fn with_auto_approve(mut self, auto_approve: bool) -> Self {
+        self.auto_approve = auto_approve;
+        self
+    }
 }
 
 /// Wrapper for V1 vault operations that automatically uses the signer's address.
 pub struct VaultV1Operations<'a> {
     client: &'a VaultV1TransactionClient,
+    auto_approve: bool,
 }
 
 impl<'a> VaultV1Operations<'a> {
     /// Create a new V1 operations wrapper.
-    fn new(client: &'a VaultV1TransactionClient) -> Self {
-        Self { client }
+    fn new(client: &'a VaultV1TransactionClient, auto_approve: bool) -> Self {
+        Self { client, auto_approve }
     }
 
     /// Deposit assets into a vault, receiving shares to the signer's address.
+    ///
+    /// If `auto_approve` is enabled (default), this will check the current allowance
+    /// and approve the exact minimal amount needed for the deposit if insufficient.
     pub async fn deposit(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
+        if self.auto_approve {
+            let asset = self.client.get_asset(vault).await?;
+            let current_allowance = self
+                .client
+                .get_allowance(asset, self.client.signer_address(), vault)
+                .await?;
+            if current_allowance < amount {
+                let needed = amount - current_allowance;
+                self.client.approve_if_needed(asset, vault, needed).await?;
+            }
+        }
+
         let receipt = self
             .client
             .deposit(vault, amount, self.client.signer_address())
@@ -924,6 +963,16 @@ impl<'a> VaultV1Operations<'a> {
         Ok(receipt)
     }
 
+    /// Get the current allowance for the vault to spend the signer's tokens.
+    pub async fn get_allowance(&self, vault: Address) -> Result<U256> {
+        let asset = self.client.get_asset(vault).await?;
+        let allowance = self
+            .client
+            .get_allowance(asset, self.client.signer_address(), vault)
+            .await?;
+        Ok(allowance)
+    }
+
     /// Get the underlying asset address of a vault.
     pub async fn get_asset(&self, vault: Address) -> Result<Address> {
         let asset = self.client.get_asset(vault).await?;
@@ -939,22 +988,43 @@ impl<'a> VaultV1Operations<'a> {
     /// Get the signer's address.
     pub fn signer_address(&self) -> Address {
         self.client.signer_address()
+    }
+
+    /// Check if auto_approve is enabled.
+    pub fn auto_approve(&self) -> bool {
+        self.auto_approve
     }
 }
 
 /// Wrapper for V2 vault operations that automatically uses the signer's address.
 pub struct VaultV2Operations<'a> {
     client: &'a VaultV2TransactionClient,
+    auto_approve: bool,
 }
 
 impl<'a> VaultV2Operations<'a> {
     /// Create a new V2 operations wrapper.
-    fn new(client: &'a VaultV2TransactionClient) -> Self {
-        Self { client }
+    fn new(client: &'a VaultV2TransactionClient, auto_approve: bool) -> Self {
+        Self { client, auto_approve }
     }
 
     /// Deposit assets into a vault, receiving shares to the signer's address.
+    ///
+    /// If `auto_approve` is enabled (default), this will check the current allowance
+    /// and approve the exact minimal amount needed for the deposit if insufficient.
     pub async fn deposit(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
+        if self.auto_approve {
+            let asset = self.client.get_asset(vault).await?;
+            let current_allowance = self
+                .client
+                .get_allowance(asset, self.client.signer_address(), vault)
+                .await?;
+            if current_allowance < amount {
+                let needed = amount - current_allowance;
+                self.client.approve_if_needed(asset, vault, needed).await?;
+            }
+        }
+
         let receipt = self
             .client
             .deposit(vault, amount, self.client.signer_address())
@@ -990,6 +1060,16 @@ impl<'a> VaultV2Operations<'a> {
         Ok(receipt)
     }
 
+    /// Get the current allowance for the vault to spend the signer's tokens.
+    pub async fn get_allowance(&self, vault: Address) -> Result<U256> {
+        let asset = self.client.get_asset(vault).await?;
+        let allowance = self
+            .client
+            .get_allowance(asset, self.client.signer_address(), vault)
+            .await?;
+        Ok(allowance)
+    }
+
     /// Get the underlying asset address of a vault.
     pub async fn get_asset(&self, vault: Address) -> Result<Address> {
         let asset = self.client.get_asset(vault).await?;
@@ -1005,6 +1085,11 @@ impl<'a> VaultV2Operations<'a> {
     /// Get the signer's address.
     pub fn signer_address(&self) -> Address {
         self.client.signer_address()
+    }
+
+    /// Check if auto_approve is enabled.
+    pub fn auto_approve(&self) -> bool {
+        self.auto_approve
     }
 }
 
@@ -1044,6 +1129,7 @@ pub struct MorphoClient {
     api: MorphoApiClient,
     vault_v1_tx: Option<VaultV1TransactionClient>,
     vault_v2_tx: Option<VaultV2TransactionClient>,
+    auto_approve: bool,
 }
 
 impl Default for MorphoClient {
@@ -1059,6 +1145,7 @@ impl MorphoClient {
             api: MorphoApiClient::new(),
             vault_v1_tx: None,
             vault_v2_tx: None,
+            auto_approve: true,
         }
     }
 
@@ -1084,6 +1171,7 @@ impl MorphoClient {
             api,
             vault_v1_tx,
             vault_v2_tx,
+            auto_approve: config.auto_approve,
         })
     }
 
@@ -1092,7 +1180,7 @@ impl MorphoClient {
     /// Returns an error if transaction support is not configured.
     pub fn vault_v1(&self) -> Result<VaultV1Operations<'_>> {
         match &self.vault_v1_tx {
-            Some(client) => Ok(VaultV1Operations::new(client)),
+            Some(client) => Ok(VaultV1Operations::new(client, self.auto_approve)),
             None => Err(ApiError::TransactionNotConfigured),
         }
     }
@@ -1102,9 +1190,14 @@ impl MorphoClient {
     /// Returns an error if transaction support is not configured.
     pub fn vault_v2(&self) -> Result<VaultV2Operations<'_>> {
         match &self.vault_v2_tx {
-            Some(client) => Ok(VaultV2Operations::new(client)),
+            Some(client) => Ok(VaultV2Operations::new(client, self.auto_approve)),
             None => Err(ApiError::TransactionNotConfigured),
         }
+    }
+
+    /// Check if auto_approve is enabled.
+    pub fn auto_approve(&self) -> bool {
+        self.auto_approve
     }
 
     /// Get the API client for GraphQL queries.
