@@ -1,10 +1,11 @@
 //! Unified vault abstraction for both V1 and V2 vaults.
 
+use alloy_chains::NamedChain;
 use alloy_primitives::{Address, U256};
 use serde::{Deserialize, Serialize};
 
 use super::asset::Asset;
-use super::chain::Chain;
+use super::chain::chain_serde;
 use super::vault_v1::VaultV1;
 use super::vault_v2::VaultV2;
 
@@ -38,7 +39,8 @@ pub struct Vault {
     /// The vault's symbol.
     pub symbol: String,
     /// The blockchain the vault is deployed on.
-    pub chain: Chain,
+    #[serde(with = "chain_serde")]
+    pub chain: NamedChain,
     /// Whether the vault is listed on the Morpho UI.
     pub listed: bool,
     /// The vault's underlying asset.

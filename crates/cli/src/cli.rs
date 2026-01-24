@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use morpho_rs_api::Chain;
+use alloy_chains::NamedChain;
 use clap::{Parser, Subcommand, ValueEnum};
 
 /// Morpho CLI - Query V1 and V2 vaults
@@ -149,9 +149,9 @@ pub enum OutputFormat {
     Json,
 }
 
-/// Wrapper for Chain that implements FromStr with aliases
+/// Wrapper for NamedChain that implements FromStr with aliases
 #[derive(Clone, Copy, Debug)]
-pub struct ChainArg(pub Chain);
+pub struct ChainArg(pub NamedChain);
 
 impl FromStr for ChainArg {
     type Err = String;
@@ -159,41 +159,36 @@ impl FromStr for ChainArg {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let chain = match s.to_lowercase().as_str() {
             // Ethereum aliases
-            "ethereum" | "eth" | "mainnet" | "1" => Chain::EthMainnet,
+            "ethereum" | "eth" | "mainnet" | "1" => NamedChain::Mainnet,
             // Base aliases
-            "base" | "8453" => Chain::BaseMainnet,
+            "base" | "8453" => NamedChain::Base,
             // Polygon aliases
-            "polygon" | "matic" | "137" => Chain::PolygonMainnet,
+            "polygon" | "matic" | "137" => NamedChain::Polygon,
             // Arbitrum aliases
-            "arbitrum" | "arb" | "42161" => Chain::ArbitrumMainnet,
+            "arbitrum" | "arb" | "42161" => NamedChain::Arbitrum,
             // Optimism aliases
-            "optimism" | "op" | "10" => Chain::OptimismMainnet,
+            "optimism" | "op" | "10" => NamedChain::Optimism,
             // Other chains (using their network names)
-            "worldchain" | "480" => Chain::WorldChainMainnet,
-            "fraxtal" | "252" => Chain::FraxtalMainnet,
-            "scroll" | "534352" => Chain::ScrollMainnet,
-            "ink" | "57073" => Chain::InkMainnet,
-            "unichain" | "130" => Chain::Unichain,
-            "sonic" | "146" => Chain::SonicMainnet,
-            "hemi" | "43111" => Chain::HemiMainnet,
-            "mode" | "34443" => Chain::ModeMainnet,
-            "corn" | "21000000" => Chain::CornMainnet,
-            "plume" | "98866" => Chain::PlumeMainnet,
-            "camp" | "123420001114" => Chain::CampMainnet,
-            "katana" | "747474" => Chain::KatanaMainnet,
-            "etherlink" | "42793" => Chain::EtherlinkMainnet,
-            "tac" | "239" => Chain::TacMainnet,
-            "lisk" | "1135" => Chain::LiskMainnet,
-            "hyperliquid" | "999" => Chain::HyperliquidMainnet,
-            "sei" | "1329" => Chain::SeiMainnet,
-            "zerog" | "0g" | "16661" => Chain::ZeroGMainnet,
-            "linea" | "59144" => Chain::LineaMainnet,
-            "monad" | "143" => Chain::MonadMainnet,
-            "stable" | "988" => Chain::StableMainnet,
-            "cronos" | "25" => Chain::CronosMainnet,
-            "celo" | "42220" => Chain::CeloMainnet,
-            "abstract" | "2741" => Chain::AbstractMainnet,
-            "sepolia" | "11155111" => Chain::Sepolia,
+            "worldchain" | "world" | "480" => NamedChain::World,
+            "fraxtal" | "252" => NamedChain::Fraxtal,
+            "scroll" | "534352" => NamedChain::Scroll,
+            "ink" | "57073" => NamedChain::Ink,
+            "unichain" | "130" => NamedChain::Unichain,
+            "sonic" | "146" => NamedChain::Sonic,
+            "mode" | "34443" => NamedChain::Mode,
+            "corn" | "21000000" => NamedChain::Corn,
+            "katana" | "747474" => NamedChain::Katana,
+            "etherlink" | "42793" => NamedChain::Etherlink,
+            "lisk" | "1135" => NamedChain::Lisk,
+            "hyperliquid" | "999" => NamedChain::Hyperliquid,
+            "sei" | "1329" => NamedChain::Sei,
+            "linea" | "59144" => NamedChain::Linea,
+            "monad" | "143" => NamedChain::Monad,
+            "stable" | "988" => NamedChain::StableMainnet,
+            "cronos" | "25" => NamedChain::Cronos,
+            "celo" | "42220" => NamedChain::Celo,
+            "abstract" | "2741" => NamedChain::Abstract,
+            "sepolia" | "11155111" => NamedChain::Sepolia,
             _ => return Err(format!("Unknown chain: {}", s)),
         };
         Ok(ChainArg(chain))
@@ -202,6 +197,6 @@ impl FromStr for ChainArg {
 
 impl std::fmt::Display for ChainArg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0.network())
+        write!(f, "{}", self.0.as_str())
     }
 }

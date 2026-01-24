@@ -93,7 +93,7 @@ pub fn format_v1_vaults_table(vaults: &[VaultV1]) -> String {
             VaultV1Row {
                 name: truncate_name(&v.name, 30),
                 address: truncate_address(&format!("{}", v.address)),
-                chain: v.chain.network().to_string(),
+                chain: v.chain.as_str().to_string(),
                 curator,
                 apy,
                 tvl_usd: format_usd(tvl_usd),
@@ -131,7 +131,7 @@ pub fn format_v2_vaults_table(vaults: &[VaultV2]) -> String {
             VaultV2Row {
                 name: truncate_name(&v.name, 30),
                 address: truncate_address(&format!("{}", v.address)),
-                chain: v.chain.network().to_string(),
+                chain: v.chain.as_str().to_string(),
                 curator,
                 apy,
                 tvl_usd: format_usd(v.total_assets_usd),

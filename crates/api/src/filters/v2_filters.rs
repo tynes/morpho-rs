@@ -1,7 +1,8 @@
 //! Filter builder for V2 vault queries.
 
+use alloy_chains::NamedChain;
+
 use crate::queries::v2::get_vaults_v2::VaultV2sFilters;
-use crate::types::Chain;
 
 /// Builder for V2 vault query filters.
 #[derive(Debug, Clone, Default)]
@@ -35,15 +36,15 @@ impl VaultFiltersV2 {
     /// Filter by chains.
     pub fn chains<I>(mut self, chains: I) -> Self
     where
-        I: IntoIterator<Item = Chain>,
+        I: IntoIterator<Item = NamedChain>,
     {
-        self.chain_ids = Some(chains.into_iter().map(|c| c.id()).collect());
+        self.chain_ids = Some(chains.into_iter().map(|c| u64::from(c) as i64).collect());
         self
     }
 
     /// Filter by a single chain.
-    pub fn chain(mut self, chain: Chain) -> Self {
-        self.chain_ids = Some(vec![chain.id()]);
+    pub fn chain(mut self, chain: NamedChain) -> Self {
+        self.chain_ids = Some(vec![u64::from(chain) as i64]);
         self
     }
 
@@ -139,7 +140,7 @@ mod tests {
     #[test]
     fn test_filter_builder() {
         let filters = VaultFiltersV2::new()
-            .chain(Chain::EthMainnet)
+            .chain(NamedChain::Mainnet)
             .listed(true)
             .min_total_assets_usd(1_000_000.0);
 
@@ -150,7 +151,7 @@ mod tests {
 
     #[test]
     fn test_filter_multiple_chains() {
-        let filters = VaultFiltersV2::new().chains([Chain::EthMainnet, Chain::BaseMainnet]);
+        let filters = VaultFiltersV2::new().chains([NamedChain::Mainnet, NamedChain::Base]);
 
         assert_eq!(filters.chain_ids, Some(vec![1, 8453]));
     }

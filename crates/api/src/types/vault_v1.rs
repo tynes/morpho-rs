@@ -1,10 +1,11 @@
 //! V1 (MetaMorpho) vault types.
 
+use alloy_chains::NamedChain;
 use alloy_primitives::{Address, U256};
 use serde::{Deserialize, Serialize};
 
 use super::asset::Asset;
-use super::chain::Chain;
+use super::chain::{chain_from_id, chain_serde};
 use super::scalars::{parse_address, parse_bigint};
 
 /// Represents a Morpho V1 (MetaMorpho) vault.
@@ -17,7 +18,8 @@ pub struct VaultV1 {
     /// The vault's symbol.
     pub symbol: String,
     /// The blockchain the vault is deployed on.
-    pub chain: Chain,
+    #[serde(with = "chain_serde")]
+    pub chain: NamedChain,
     /// Whether the vault is listed on the Morpho UI.
     pub listed: bool,
     /// Whether the vault is featured.
@@ -119,7 +121,7 @@ impl VaultV1 {
             address: parse_address(address)?,
             name,
             symbol,
-            chain: Chain::from_id(chain_id)?,
+            chain: chain_from_id(chain_id)?,
             listed,
             featured,
             whitelisted,

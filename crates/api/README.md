@@ -13,16 +13,17 @@ cargo add morpho-rs-api
 - **VaultV1Client / VaultV2Client** - Dedicated clients for V1 and V2 vault queries
 - **MorphoApiClient** - Combined API client for both vault versions
 - **MorphoClient** - Unified client combining API queries and on-chain transactions
-- **30 supported chains** - Ethereum, Base, Arbitrum, Optimism, and more
+- **25 supported chains** - Ethereum, Base, Arbitrum, Optimism, and more
 - **User position queries** - Track positions, PnL, and ROE across chains
 - **Flexible filtering** - Query vaults by chain, curator, APY, and more
+- **alloy-chains integration** - Uses `NamedChain` from alloy-chains for chain types
 
 ## Usage
 
 ### Query-Only Client
 
 ```rust
-use morpho_rs_api::{MorphoClient, Chain};
+use morpho_rs_api::{MorphoClient, NamedChain};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -30,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = MorphoClient::new();
 
     // Query vaults on a specific chain
-    let vaults = client.api().get_vaults_by_chain(Chain::EthMainnet).await?;
+    let vaults = client.api().get_vaults_by_chain(NamedChain::Mainnet).await?;
     for vault in vaults {
         println!("{}: {} (APY: {:.2}%)", vault.symbol, vault.name, vault.net_apy * 100.0);
     }
@@ -42,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Full Client with Transaction Support
 
 ```rust
-use morpho_rs_api::{MorphoClient, MorphoClientConfig, Chain};
+use morpho_rs_api::{MorphoClient, MorphoClientConfig, NamedChain};
 use alloy_primitives::{Address, U256};
 
 #[tokio::main]
@@ -54,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = MorphoClient::with_config(config)?;
 
     // API queries still work
-    let vaults = client.api().get_vaults_by_chain(Chain::EthMainnet).await?;
+    let vaults = client.api().get_vaults_by_chain(NamedChain::Mainnet).await?;
 
     // Plus transaction support
     let vault: Address = "0x...".parse()?;
@@ -71,13 +72,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Querying Vaults with Filters
 
 ```rust
-use morpho_rs_api::{MorphoClient, VaultFiltersV1, Chain};
+use morpho_rs_api::{MorphoClient, VaultFiltersV1, NamedChain};
 
 let client = MorphoClient::new();
 
 // Build filters
 let filters = VaultFiltersV1::new()
-    .chain(Chain::EthMainnet)
+    .chain(NamedChain::Mainnet)
     .listed(true)
     .min_apy(0.05); // 5% minimum APY
 
@@ -108,7 +109,7 @@ client.vault_v2()?.withdraw(vault, amount).await?;
 ### Querying User Positions
 
 ```rust
-use morpho_rs_api::{MorphoClient, Chain};
+use morpho_rs_api::{MorphoClient, NamedChain};
 use alloy_primitives::Address;
 
 let client = MorphoClient::new();
@@ -120,10 +121,10 @@ println!("V1 positions: {}", positions.vault_positions.len());
 println!("V2 positions: {}", positions.vault_v2_positions.len());
 
 // Query positions on specific chain
-let positions = client.api().get_user_vault_positions(user, Some(Chain::BaseMainnet)).await?;
+let positions = client.api().get_user_vault_positions(user, Some(NamedChain::Base)).await?;
 
 // Get complete account overview
-let overview = client.api().get_user_account_overview(user, Chain::EthMainnet).await?;
+let overview = client.api().get_user_account_overview(user, NamedChain::Mainnet).await?;
 println!("Total assets USD: {:?}", overview.state.total_assets_usd);
 ```
 
@@ -144,17 +145,12 @@ println!("Total assets USD: {:?}", overview.state.total_assets_usd);
 | Fraxtal | 252 | `fraxtal` |
 | Ink | 57073 | `ink` |
 | Unichain | 130 | `unichain` |
-| Hemi | 43111 | `hemi` |
 | Corn | 21000000 | `corn` |
-| Plume | 98866 | `plume` |
-| Camp | 123420001114 | `camp` |
 | Katana | 747474 | `katana` |
 | Etherlink | 42793 | `etherlink` |
-| TAC | 239 | `tac` |
 | Lisk | 1135 | `lisk` |
 | Hyperliquid | 999 | `hyperliquid` |
 | Sei | 1329 | `sei` |
-| Zero-G | 16661 | `zerog`, `0g` |
 | Monad | 143 | `monad` |
 | Stable | 988 | `stable` |
 | Cronos | 25 | `cronos` |
@@ -178,7 +174,7 @@ println!("Total assets USD: {:?}", overview.state.total_assets_usd);
 - `Vault` - Unified vault type (V1 or V2)
 - `VaultV1` / `VaultV2` - Version-specific vault types
 - `VaultStateV1` / `VaultStateV2` - Vault state with APY, fees, allocations
-- `Chain` - Supported blockchain networks
+- `NamedChain` - Supported blockchain networks (from alloy-chains)
 - `Asset` - Token information
 - `UserVaultPositions` - User's vault positions
 - `UserAccountOverview` - Complete user account state

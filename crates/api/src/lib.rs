@@ -6,14 +6,14 @@
 //! # Example
 //!
 //! ```no_run
-//! use morpho_rs_api::{MorphoClient, MorphoClientConfig, Chain};
+//! use morpho_rs_api::{MorphoClient, MorphoClientConfig, NamedChain};
 //! use alloy::primitives::{Address, U256};
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), morpho_rs_api::ApiError> {
 //!     // API-only client (no transactions)
 //!     let client = MorphoClient::new();
-//!     let vaults = client.get_vaults_by_chain(Chain::EthMainnet).await?;
+//!     let vaults = client.get_vaults_by_chain(NamedChain::Mainnet).await?;
 //!
 //!     // Full client with transaction support
 //!     let config = MorphoClientConfig::new()
@@ -49,9 +49,9 @@ pub use error::{ApiError, Result};
 pub use filters::{VaultFiltersV1, VaultFiltersV2, VaultQueryOptionsV1, VaultQueryOptionsV2};
 pub use morpho_rs_contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
 pub use types::{
-    Asset, Chain, MarketInfo, OrderDirection, UserAccountOverview, UserMarketPosition, UserState,
-    UserVaultPositions, UserVaultV1Position, UserVaultV2Position, Vault, VaultAdapter,
-    VaultAllocation, VaultAllocator, VaultInfo, VaultOrderByV1, VaultOrderByV2,
-    VaultPositionState, VaultReward, VaultStateV1, VaultV1, VaultV2, VaultV2Warning, VaultVersion,
-    VaultWarning,
+    chain_from_id, chain_serde, Asset, MarketInfo, NamedChain, OrderDirection, UserAccountOverview,
+    UserMarketPosition, UserState, UserVaultPositions, UserVaultV1Position, UserVaultV2Position,
+    Vault, VaultAdapter, VaultAllocation, VaultAllocator, VaultInfo, VaultOrderByV1,
+    VaultOrderByV2, VaultPositionState, VaultReward, VaultStateV1, VaultV1, VaultV2,
+    VaultV2Warning, VaultVersion, VaultWarning, SUPPORTED_CHAINS,
 };

@@ -21,10 +21,10 @@ use crate::queries::v2::{
     get_vault_v2_by_address, get_vaults_v2, GetVaultV2ByAddress, GetVaultsV2,
 };
 use crate::types::{
-    Asset, Chain, MarketInfo, UserAccountOverview, UserMarketPosition, UserState,
+    Asset, MarketInfo, NamedChain, UserAccountOverview, UserMarketPosition, UserState,
     UserVaultPositions, UserVaultV1Position, UserVaultV2Position, Vault, VaultAdapter,
     VaultAllocation, VaultAllocator, VaultInfo, VaultPositionState, VaultReward, VaultStateV1,
-    VaultV1, VaultV2, VaultV2Warning, VaultWarning,
+    VaultV1, VaultV2, VaultV2Warning, VaultWarning, SUPPORTED_CHAINS,
 };
 
 /// Default Morpho GraphQL API endpoint.
@@ -158,22 +158,22 @@ impl VaultV1Client {
     }
 
     /// Get a single V1 vault by address and chain.
-    pub async fn get_vault(&self, address: &str, chain: Chain) -> Result<VaultV1> {
+    pub async fn get_vault(&self, address: &str, chain: NamedChain) -> Result<VaultV1> {
         let variables = get_vault_v1_by_address::Variables {
             address: address.to_string(),
-            chain_id: chain.id() as i64,
+            chain_id: u64::from(chain) as i64,
         };
 
         let data = self.execute::<GetVaultV1ByAddress>(variables).await?;
 
         convert_v1_vault_single(data.vault_by_address).ok_or_else(|| ApiError::VaultNotFound {
             address: address.to_string(),
-            chain_id: chain.id(),
+            chain_id: u64::from(chain) as i64,
         })
     }
 
     /// Get V1 vaults on a specific chain.
-    pub async fn get_vaults_by_chain(&self, chain: Chain) -> Result<Vec<VaultV1>> {
+    pub async fn get_vaults_by_chain(&self, chain: NamedChain) -> Result<Vec<VaultV1>> {
         let filters = VaultFiltersV1::new().chain(chain);
         self.get_vaults(Some(filters)).await
     }
@@ -182,7 +182,7 @@ impl VaultV1Client {
     pub async fn get_vaults_by_curator(
         &self,
         curator: &str,
-        chain: Option<Chain>,
+        chain: Option<NamedChain>,
     ) -> Result<Vec<VaultV1>> {
         let mut filters = VaultFiltersV1::new().curators([curator]);
         if let Some(c) = chain {
@@ -192,7 +192,7 @@ impl VaultV1Client {
     }
 
     /// Get whitelisted (listed) V1 vaults.
-    pub async fn get_whitelisted_vaults(&self, chain: Option<Chain>) -> Result<Vec<VaultV1>> {
+    pub async fn get_whitelisted_vaults(&self, chain: Option<NamedChain>) -> Result<Vec<VaultV1>> {
         let mut filters = VaultFiltersV1::new().listed(true);
         if let Some(c) = chain {
             filters = filters.chain(c);
@@ -208,7 +208,7 @@ impl VaultV1Client {
     /// # Example
     ///
     /// ```no_run
-    /// use morpho_rs_api::{VaultV1Client, VaultQueryOptionsV1, VaultFiltersV1, VaultOrderByV1, OrderDirection, Chain};
+    /// use morpho_rs_api::{VaultV1Client, VaultQueryOptionsV1, VaultFiltersV1, VaultOrderByV1, OrderDirection, NamedChain};
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
@@ -217,7 +217,7 @@ impl VaultV1Client {
     ///     // Get top 10 USDC vaults by APY on Ethereum
     ///     let options = VaultQueryOptionsV1::new()
     ///         .filters(VaultFiltersV1::new()
-    ///             .chain(Chain::EthMainnet)
+    ///             .chain(NamedChain::Mainnet)
     ///             .asset_symbols(["USDC"]))
     ///         .order_by(VaultOrderByV1::NetApy)
     ///         .order_direction(OrderDirection::Desc)
@@ -259,14 +259,14 @@ impl VaultV1Client {
     /// # Example
     ///
     /// ```no_run
-    /// use morpho_rs_api::{VaultV1Client, VaultFiltersV1, Chain};
+    /// use morpho_rs_api::{VaultV1Client, VaultFiltersV1, NamedChain};
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
     ///     let client = VaultV1Client::new();
     ///
     ///     // Get top 10 vaults by APY on Ethereum
-    ///     let filters = VaultFiltersV1::new().chain(Chain::EthMainnet);
+    ///     let filters = VaultFiltersV1::new().chain(NamedChain::Mainnet);
     ///     let vaults = client.get_top_vaults_by_apy(10, Some(filters)).await?;
     ///     Ok(())
     /// }
@@ -290,7 +290,7 @@ impl VaultV1Client {
     /// # Example
     ///
     /// ```no_run
-    /// use morpho_rs_api::{VaultV1Client, Chain};
+    /// use morpho_rs_api::{VaultV1Client, NamedChain};
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
@@ -304,7 +304,7 @@ impl VaultV1Client {
     pub async fn get_vaults_by_asset(
         &self,
         asset_symbol: &str,
-        chain: Option<Chain>,
+        chain: Option<NamedChain>,
     ) -> Result<Vec<VaultV1>> {
         let mut filters = VaultFiltersV1::new().asset_symbols([asset_symbol]);
         if let Some(c) = chain {
@@ -402,28 +402,28 @@ impl VaultV2Client {
     }
 
     /// Get a single V2 vault by address and chain.
-    pub async fn get_vault(&self, address: &str, chain: Chain) -> Result<VaultV2> {
+    pub async fn get_vault(&self, address: &str, chain: NamedChain) -> Result<VaultV2> {
         let variables = get_vault_v2_by_address::Variables {
             address: address.to_string(),
-            chain_id: chain.id() as i64,
+            chain_id: u64::from(chain) as i64,
         };
 
         let data = self.execute::<GetVaultV2ByAddress>(variables).await?;
 
         convert_v2_vault_single(data.vault_v2_by_address).ok_or_else(|| ApiError::VaultNotFound {
             address: address.to_string(),
-            chain_id: chain.id(),
+            chain_id: u64::from(chain) as i64,
         })
     }
 
     /// Get V2 vaults on a specific chain.
-    pub async fn get_vaults_by_chain(&self, chain: Chain) -> Result<Vec<VaultV2>> {
+    pub async fn get_vaults_by_chain(&self, chain: NamedChain) -> Result<Vec<VaultV2>> {
         let filters = VaultFiltersV2::new().chain(chain);
         self.get_vaults(Some(filters)).await
     }
 
     /// Get whitelisted (listed) V2 vaults.
-    pub async fn get_whitelisted_vaults(&self, chain: Option<Chain>) -> Result<Vec<VaultV2>> {
+    pub async fn get_whitelisted_vaults(&self, chain: Option<NamedChain>) -> Result<Vec<VaultV2>> {
         let mut filters = VaultFiltersV2::new().listed(true);
         if let Some(c) = chain {
             filters = filters.chain(c);
@@ -442,7 +442,7 @@ impl VaultV2Client {
     /// # Example
     ///
     /// ```no_run
-    /// use morpho_rs_api::{VaultV2Client, VaultQueryOptionsV2, VaultFiltersV2, VaultOrderByV2, OrderDirection, Chain};
+    /// use morpho_rs_api::{VaultV2Client, VaultQueryOptionsV2, VaultFiltersV2, VaultOrderByV2, OrderDirection, NamedChain};
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
@@ -451,7 +451,7 @@ impl VaultV2Client {
     ///     // Get top 10 USDC vaults by APY on Ethereum
     ///     let options = VaultQueryOptionsV2::new()
     ///         .filters(VaultFiltersV2::new()
-    ///             .chain(Chain::EthMainnet))
+    ///             .chain(NamedChain::Mainnet))
     ///         .order_by(VaultOrderByV2::NetApy)
     ///         .order_direction(OrderDirection::Desc)
     ///         .asset_symbols(["USDC"])  // Client-side filtering
@@ -519,14 +519,14 @@ impl VaultV2Client {
     /// # Example
     ///
     /// ```no_run
-    /// use morpho_rs_api::{VaultV2Client, VaultFiltersV2, Chain};
+    /// use morpho_rs_api::{VaultV2Client, VaultFiltersV2, NamedChain};
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
     ///     let client = VaultV2Client::new();
     ///
     ///     // Get top 10 vaults by APY on Ethereum
-    ///     let filters = VaultFiltersV2::new().chain(Chain::EthMainnet);
+    ///     let filters = VaultFiltersV2::new().chain(NamedChain::Mainnet);
     ///     let vaults = client.get_top_vaults_by_apy(10, Some(filters)).await?;
     ///     Ok(())
     /// }
@@ -555,7 +555,7 @@ impl VaultV2Client {
     /// # Example
     ///
     /// ```no_run
-    /// use morpho_rs_api::{VaultV2Client, Chain};
+    /// use morpho_rs_api::{VaultV2Client, NamedChain};
     ///
     /// #[tokio::main]
     /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
@@ -569,7 +569,7 @@ impl VaultV2Client {
     pub async fn get_vaults_by_asset(
         &self,
         asset_symbol: &str,
-        chain: Option<Chain>,
+        chain: Option<NamedChain>,
     ) -> Result<Vec<VaultV2>> {
         let filters = chain.map(|c| VaultFiltersV2::new().chain(c));
         let options = VaultQueryOptionsV2 {
@@ -617,7 +617,7 @@ impl MorphoApiClient {
     }
 
     /// Get vaults (V1 and V2) on a specific chain as unified Vault type.
-    pub async fn get_vaults_by_chain(&self, chain: Chain) -> Result<Vec<Vault>> {
+    pub async fn get_vaults_by_chain(&self, chain: NamedChain) -> Result<Vec<Vault>> {
         let (v1_vaults, v2_vaults) = tokio::try_join!(
             self.v1.get_vaults_by_chain(chain),
             self.v2.get_vaults_by_chain(chain),
@@ -631,7 +631,7 @@ impl MorphoApiClient {
     }
 
     /// Get whitelisted vaults (V1 and V2) as unified Vault type.
-    pub async fn get_whitelisted_vaults(&self, chain: Option<Chain>) -> Result<Vec<Vault>> {
+    pub async fn get_whitelisted_vaults(&self, chain: Option<NamedChain>) -> Result<Vec<Vault>> {
         let (v1_vaults, v2_vaults) = tokio::try_join!(
             self.v1.get_whitelisted_vaults(chain),
             self.v2.get_whitelisted_vaults(chain),
@@ -681,7 +681,7 @@ impl MorphoApiClient {
     pub async fn get_user_vault_positions(
         &self,
         address: &str,
-        chain: Option<Chain>,
+        chain: Option<NamedChain>,
     ) -> Result<UserVaultPositions> {
         match chain {
             Some(c) => self.get_user_vault_positions_single_chain(address, c).await,
@@ -693,11 +693,11 @@ impl MorphoApiClient {
     async fn get_user_vault_positions_single_chain(
         &self,
         address: &str,
-        chain: Chain,
+        chain: NamedChain,
     ) -> Result<UserVaultPositions> {
         let variables = get_user_vault_positions::Variables {
             address: address.to_string(),
-            chain_id: chain.id(),
+            chain_id: u64::from(chain) as i64,
         };
 
         let data = self.execute::<GetUserVaultPositions>(variables).await?;
@@ -733,9 +733,9 @@ impl MorphoApiClient {
         use futures::future::join_all;
 
         // Filter chains to those with IDs that fit in GraphQL Int (32-bit signed)
-        let valid_chains: Vec<_> = Chain::all()
+        let valid_chains: Vec<_> = SUPPORTED_CHAINS
             .iter()
-            .filter(|chain| chain.id() <= i32::MAX as i64)
+            .filter(|chain| u64::from(**chain) <= i32::MAX as u64)
             .copied()
             .collect();
 
@@ -776,11 +776,11 @@ impl MorphoApiClient {
     pub async fn get_user_account_overview(
         &self,
         address: &str,
-        chain: Chain,
+        chain: NamedChain,
     ) -> Result<UserAccountOverview> {
         let variables = get_user_account_overview::Variables {
             address: address.to_string(),
-            chain_id: chain.id(),
+            chain_id: u64::from(chain) as i64,
         };
 
         let data = self.execute::<GetUserAccountOverview>(variables).await?;
@@ -1018,14 +1018,14 @@ impl<'a> VaultV2Operations<'a> {
 /// # Example
 ///
 /// ```no_run
-/// use morpho_rs_api::{MorphoClient, MorphoClientConfig, Chain};
+/// use morpho_rs_api::{MorphoClient, MorphoClientConfig, NamedChain};
 /// use alloy::primitives::{Address, U256};
 ///
 /// #[tokio::main]
 /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
 ///     // API-only client
 ///     let client = MorphoClient::new();
-///     let vaults = client.get_vaults_by_chain(Chain::EthMainnet).await?;
+///     let vaults = client.get_vaults_by_chain(NamedChain::Mainnet).await?;
 ///
 ///     // Full client with transaction support
 ///     let config = MorphoClientConfig::new()
@@ -1113,12 +1113,12 @@ impl MorphoClient {
     }
 
     /// Get vaults (V1 and V2) on a specific chain as unified Vault type.
-    pub async fn get_vaults_by_chain(&self, chain: Chain) -> Result<Vec<Vault>> {
+    pub async fn get_vaults_by_chain(&self, chain: NamedChain) -> Result<Vec<Vault>> {
         self.api.get_vaults_by_chain(chain).await
     }
 
     /// Get whitelisted vaults (V1 and V2) as unified Vault type.
-    pub async fn get_whitelisted_vaults(&self, chain: Option<Chain>) -> Result<Vec<Vault>> {
+    pub async fn get_whitelisted_vaults(&self, chain: Option<NamedChain>) -> Result<Vec<Vault>> {
         self.api.get_whitelisted_vaults(chain).await
     }
 
@@ -1126,7 +1126,7 @@ impl MorphoClient {
     pub async fn get_user_vault_positions(
         &self,
         address: &str,
-        chain: Option<Chain>,
+        chain: Option<NamedChain>,
     ) -> Result<UserVaultPositions> {
         self.api.get_user_vault_positions(address, chain).await
     }
@@ -1135,7 +1135,7 @@ impl MorphoClient {
     pub async fn get_user_account_overview(
         &self,
         address: &str,
-        chain: Chain,
+        chain: NamedChain,
     ) -> Result<UserAccountOverview> {
         self.api.get_user_account_overview(address, chain).await
     }

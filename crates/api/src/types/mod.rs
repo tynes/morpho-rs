@@ -9,8 +9,9 @@ pub mod vault;
 pub mod vault_v1;
 pub mod vault_v2;
 
+pub use alloy_chains::NamedChain;
 pub use asset::Asset;
-pub use chain::Chain;
+pub use chain::{chain_from_id, chain_serde, SUPPORTED_CHAINS};
 pub use ordering::{OrderDirection, VaultOrderByV1, VaultOrderByV2};
 pub use user::{
     MarketInfo, UserAccountOverview, UserMarketPosition, UserState, UserVaultPositions,

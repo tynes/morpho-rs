@@ -15,6 +15,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 thiserror = "2.0"
 url = "2.5"
 alloy-primitives = { version = "0.8", features = ["serde"] }
+alloy-chains = { version = "0.2", features = ["serde"] }
 alloy = { version = "0.8", features = ["provider-http", "signer-local", "contract", "sol-types", "rpc-types"] }
 futures = "0.3"
 morpho-rs-contracts = { version = "0.1.3", path = "../contracts" }

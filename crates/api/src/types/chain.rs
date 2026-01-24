@@ -1,207 +1,85 @@
-//! Chain types for Morpho-supported networks.
+//! Chain types and helpers for Morpho-supported networks.
+//!
+//! This module provides helpers for working with `alloy_chains::NamedChain` in the context
+//! of Morpho's supported networks. The full `NamedChain` type is re-exported from `alloy_chains`.
 
-use serde::{Deserialize, Serialize};
+use alloy_chains::NamedChain;
 
-/// Supported blockchain networks for Morpho.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(try_from = "i64", into = "i64")]
-pub enum Chain {
-    EthMainnet,
-    BaseMainnet,
-    PolygonMainnet,
-    ArbitrumMainnet,
-    OptimismMainnet,
-    WorldChainMainnet,
-    FraxtalMainnet,
-    ScrollMainnet,
-    InkMainnet,
-    Unichain,
-    SonicMainnet,
-    HemiMainnet,
-    ModeMainnet,
-    CornMainnet,
-    PlumeMainnet,
-    CampMainnet,
-    KatanaMainnet,
-    EtherlinkMainnet,
-    TacMainnet,
-    LiskMainnet,
-    HyperliquidMainnet,
-    SeiMainnet,
-    ZeroGMainnet,
-    LineaMainnet,
-    MonadMainnet,
-    StableMainnet,
-    CronosMainnet,
-    CeloMainnet,
-    AbstractMainnet,
-    Sepolia,
+/// All chains supported by Morpho.
+///
+/// This constant lists all the blockchain networks that Morpho vaults are deployed on.
+pub const SUPPORTED_CHAINS: &[NamedChain] = &[
+    NamedChain::Mainnet,
+    NamedChain::Base,
+    NamedChain::Polygon,
+    NamedChain::Arbitrum,
+    NamedChain::Optimism,
+    NamedChain::World,
+    NamedChain::Fraxtal,
+    NamedChain::Scroll,
+    NamedChain::Ink,
+    NamedChain::Unichain,
+    NamedChain::Sonic,
+    NamedChain::Mode,
+    NamedChain::Corn,
+    NamedChain::Katana,
+    NamedChain::Etherlink,
+    NamedChain::Lisk,
+    NamedChain::Hyperliquid,
+    NamedChain::Sei,
+    NamedChain::Linea,
+    NamedChain::Monad,
+    NamedChain::StableMainnet,
+    NamedChain::Cronos,
+    NamedChain::Celo,
+    NamedChain::Abstract,
+    NamedChain::Sepolia,
+];
+
+/// Try to create a NamedChain from a chain ID.
+///
+/// This is a convenience wrapper around `NamedChain::try_from`.
+pub fn chain_from_id(id: i64) -> Option<NamedChain> {
+    NamedChain::try_from(id as u64).ok()
 }
 
-impl Chain {
-    /// Returns the chain ID.
-    pub const fn id(self) -> i64 {
-        match self {
-            Chain::EthMainnet => 1,
-            Chain::BaseMainnet => 8453,
-            Chain::PolygonMainnet => 137,
-            Chain::ArbitrumMainnet => 42161,
-            Chain::OptimismMainnet => 10,
-            Chain::WorldChainMainnet => 480,
-            Chain::FraxtalMainnet => 252,
-            Chain::ScrollMainnet => 534352,
-            Chain::InkMainnet => 57073,
-            Chain::Unichain => 130,
-            Chain::SonicMainnet => 146,
-            Chain::HemiMainnet => 43111,
-            Chain::ModeMainnet => 34443,
-            Chain::CornMainnet => 21000000,
-            Chain::PlumeMainnet => 98866,
-            Chain::CampMainnet => 123420001114,
-            Chain::KatanaMainnet => 747474,
-            Chain::EtherlinkMainnet => 42793,
-            Chain::TacMainnet => 239,
-            Chain::LiskMainnet => 1135,
-            Chain::HyperliquidMainnet => 999,
-            Chain::SeiMainnet => 1329,
-            Chain::ZeroGMainnet => 16661,
-            Chain::LineaMainnet => 59144,
-            Chain::MonadMainnet => 143,
-            Chain::StableMainnet => 988,
-            Chain::CronosMainnet => 25,
-            Chain::CeloMainnet => 42220,
-            Chain::AbstractMainnet => 2741,
-            Chain::Sepolia => 11155111,
-        }
+/// Serde helper module for serializing/deserializing NamedChain as i64 chain ID.
+///
+/// The Morpho GraphQL API uses i64 for chain IDs, so this module provides
+/// serialization helpers to convert between NamedChain and i64.
+///
+/// # Example
+///
+/// ```ignore
+/// use alloy_chains::NamedChain;
+/// use serde::{Deserialize, Serialize};
+///
+/// #[derive(Serialize, Deserialize)]
+/// struct Vault {
+///     #[serde(with = "chain_serde")]
+///     chain: NamedChain,
+/// }
+/// ```
+pub mod chain_serde {
+    use alloy_chains::NamedChain;
+    use serde::{self, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S>(chain: &NamedChain, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let id: u64 = (*chain).into();
+        serializer.serialize_i64(id as i64)
     }
 
-    /// Returns the network name.
-    pub const fn network(self) -> &'static str {
-        match self {
-            Chain::EthMainnet => "ethereum",
-            Chain::BaseMainnet => "base",
-            Chain::PolygonMainnet => "polygon",
-            Chain::ArbitrumMainnet => "arbitrum",
-            Chain::OptimismMainnet => "optimism",
-            Chain::WorldChainMainnet => "worldchain",
-            Chain::FraxtalMainnet => "fraxtal",
-            Chain::ScrollMainnet => "scroll",
-            Chain::InkMainnet => "ink",
-            Chain::Unichain => "unichain",
-            Chain::SonicMainnet => "sonic",
-            Chain::HemiMainnet => "hemi",
-            Chain::ModeMainnet => "mode",
-            Chain::CornMainnet => "corn",
-            Chain::PlumeMainnet => "plume",
-            Chain::CampMainnet => "camp",
-            Chain::KatanaMainnet => "katana",
-            Chain::EtherlinkMainnet => "etherlink",
-            Chain::TacMainnet => "tac",
-            Chain::LiskMainnet => "lisk",
-            Chain::HyperliquidMainnet => "hyperliquid",
-            Chain::SeiMainnet => "sei",
-            Chain::ZeroGMainnet => "zerog",
-            Chain::LineaMainnet => "linea",
-            Chain::MonadMainnet => "monad",
-            Chain::StableMainnet => "stable",
-            Chain::CronosMainnet => "cronos",
-            Chain::CeloMainnet => "celo",
-            Chain::AbstractMainnet => "abstract",
-            Chain::Sepolia => "sepolia",
-        }
-    }
-
-    /// Try to create a Chain from a chain ID.
-    pub fn from_id(id: i64) -> Option<Chain> {
-        match id {
-            1 => Some(Chain::EthMainnet),
-            8453 => Some(Chain::BaseMainnet),
-            137 => Some(Chain::PolygonMainnet),
-            42161 => Some(Chain::ArbitrumMainnet),
-            10 => Some(Chain::OptimismMainnet),
-            480 => Some(Chain::WorldChainMainnet),
-            252 => Some(Chain::FraxtalMainnet),
-            534352 => Some(Chain::ScrollMainnet),
-            57073 => Some(Chain::InkMainnet),
-            130 => Some(Chain::Unichain),
-            146 => Some(Chain::SonicMainnet),
-            43111 => Some(Chain::HemiMainnet),
-            34443 => Some(Chain::ModeMainnet),
-            21000000 => Some(Chain::CornMainnet),
-            98866 => Some(Chain::PlumeMainnet),
-            123420001114 => Some(Chain::CampMainnet),
-            747474 => Some(Chain::KatanaMainnet),
-            42793 => Some(Chain::EtherlinkMainnet),
-            239 => Some(Chain::TacMainnet),
-            1135 => Some(Chain::LiskMainnet),
-            999 => Some(Chain::HyperliquidMainnet),
-            1329 => Some(Chain::SeiMainnet),
-            16661 => Some(Chain::ZeroGMainnet),
-            59144 => Some(Chain::LineaMainnet),
-            143 => Some(Chain::MonadMainnet),
-            988 => Some(Chain::StableMainnet),
-            25 => Some(Chain::CronosMainnet),
-            42220 => Some(Chain::CeloMainnet),
-            2741 => Some(Chain::AbstractMainnet),
-            11155111 => Some(Chain::Sepolia),
-            _ => None,
-        }
-    }
-
-    /// Returns all supported chains.
-    pub const fn all() -> &'static [Chain] {
-        &[
-            Chain::EthMainnet,
-            Chain::BaseMainnet,
-            Chain::PolygonMainnet,
-            Chain::ArbitrumMainnet,
-            Chain::OptimismMainnet,
-            Chain::WorldChainMainnet,
-            Chain::FraxtalMainnet,
-            Chain::ScrollMainnet,
-            Chain::InkMainnet,
-            Chain::Unichain,
-            Chain::SonicMainnet,
-            Chain::HemiMainnet,
-            Chain::ModeMainnet,
-            Chain::CornMainnet,
-            Chain::PlumeMainnet,
-            Chain::CampMainnet,
-            Chain::KatanaMainnet,
-            Chain::EtherlinkMainnet,
-            Chain::TacMainnet,
-            Chain::LiskMainnet,
-            Chain::HyperliquidMainnet,
-            Chain::SeiMainnet,
-            Chain::ZeroGMainnet,
-            Chain::LineaMainnet,
-            Chain::MonadMainnet,
-            Chain::StableMainnet,
-            Chain::CronosMainnet,
-            Chain::CeloMainnet,
-            Chain::AbstractMainnet,
-            Chain::Sepolia,
-        ]
-    }
-}
-
-impl From<Chain> for i64 {
-    fn from(chain: Chain) -> i64 {
-        chain.id()
-    }
-}
-
-impl TryFrom<i64> for Chain {
-    type Error = String;
-
-    fn try_from(id: i64) -> Result<Self, Self::Error> {
-        Chain::from_id(id).ok_or_else(|| format!("Unknown chain ID: {}", id))
-    }
-}
-
-impl std::fmt::Display for Chain {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ({})", self.network(), self.id())
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<NamedChain, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let id = i64::deserialize(deserializer)?;
+        NamedChain::try_from(id as u64).map_err(|_| {
+            serde::de::Error::custom(format!("Unknown chain ID: {}", id))
+        })
     }
 }
 
@@ -210,17 +88,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_chain_id_roundtrip() {
-        for chain in Chain::all() {
-            let id = chain.id();
-            let recovered = Chain::from_id(id).unwrap();
-            assert_eq!(*chain, recovered);
+    fn test_chain_from_id() {
+        assert_eq!(chain_from_id(1), Some(NamedChain::Mainnet));
+        assert_eq!(chain_from_id(8453), Some(NamedChain::Base));
+        // Use a very large invalid ID that's unlikely to be a real chain
+        assert_eq!(chain_from_id(9999999999999), None);
+    }
+
+    #[test]
+    fn test_supported_chains_have_valid_ids() {
+        for chain in SUPPORTED_CHAINS {
+            let id: u64 = (*chain).into();
+            let recovered = chain_from_id(id as i64);
+            assert_eq!(recovered, Some(*chain));
         }
     }
 
     #[test]
-    fn test_chain_display() {
-        assert_eq!(Chain::EthMainnet.to_string(), "ethereum (1)");
-        assert_eq!(Chain::BaseMainnet.to_string(), "base (8453)");
+    fn test_chain_serde_roundtrip() {
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        struct TestStruct {
+            #[serde(with = "chain_serde")]
+            chain: NamedChain,
+        }
+
+        let original = TestStruct {
+            chain: NamedChain::Base,
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        assert!(json.contains("8453"));
+
+        let recovered: TestStruct = serde_json::from_str(&json).unwrap();
+        assert_eq!(original, recovered);
     }
 }

@@ -10,11 +10,11 @@ use crate::types::ordering::{OrderDirection, VaultOrderByV1, VaultOrderByV2};
 /// # Example
 ///
 /// ```
-/// use morpho_rs_api::{VaultQueryOptionsV1, VaultFiltersV1, VaultOrderByV1, OrderDirection, Chain};
+/// use morpho_rs_api::{VaultQueryOptionsV1, VaultFiltersV1, VaultOrderByV1, OrderDirection, NamedChain};
 ///
 /// let options = VaultQueryOptionsV1::new()
 ///     .filters(VaultFiltersV1::new()
-///         .chain(Chain::EthMainnet)
+///         .chain(NamedChain::Mainnet)
 ///         .asset_symbols(["USDC"]))
 ///     .order_by(VaultOrderByV1::NetApy)
 ///     .order_direction(OrderDirection::Desc)
@@ -87,11 +87,11 @@ impl VaultQueryOptionsV1 {
 /// # Example
 ///
 /// ```
-/// use morpho_rs_api::{VaultQueryOptionsV2, VaultFiltersV2, VaultOrderByV2, OrderDirection, Chain};
+/// use morpho_rs_api::{VaultQueryOptionsV2, VaultFiltersV2, VaultOrderByV2, OrderDirection, NamedChain};
 ///
 /// let options = VaultQueryOptionsV2::new()
 ///     .filters(VaultFiltersV2::new()
-///         .chain(Chain::EthMainnet))
+///         .chain(NamedChain::Mainnet))
 ///     .order_by(VaultOrderByV2::NetApy)
 ///     .order_direction(OrderDirection::Desc)
 ///     .asset_symbols(["USDC"])  // Client-side filtering

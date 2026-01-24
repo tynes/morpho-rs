@@ -1,9 +1,10 @@
 //! User types for Morpho API.
 
+use alloy_chains::NamedChain;
 use alloy_primitives::{Address, U256};
 use serde::{Deserialize, Serialize};
 
-use super::chain::Chain;
+use super::chain::{chain_from_id, chain_serde};
 use super::scalars::{parse_address, parse_bigint};
 
 /// Basic vault info for positions.
@@ -16,7 +17,8 @@ pub struct VaultInfo {
     /// The vault's symbol.
     pub symbol: String,
     /// The blockchain the vault is deployed on.
-    pub chain: Chain,
+    #[serde(with = "chain_serde")]
+    pub chain: NamedChain,
 }
 
 /// State of a vault position.
@@ -198,7 +200,7 @@ impl VaultInfo {
             address: parse_address(address)?,
             name,
             symbol,
-            chain: Chain::from_id(chain_id)?,
+            chain: chain_from_id(chain_id)?,
         })
     }
 }

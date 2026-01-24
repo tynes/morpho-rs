@@ -1,7 +1,8 @@
 //! V2 vault command implementations.
 
+use alloy_chains::NamedChain;
 use anyhow::Result;
-use morpho_rs_api::{Chain, ClientConfig, VaultV2, VaultV2Client};
+use morpho_rs_api::{ClientConfig, VaultV2, VaultV2Client};
 
 use crate::cli::{InfoArgs, ListArgs, OutputFormat};
 use crate::output::{format_v2_vault_detail, format_v2_vaults_table};
@@ -62,7 +63,7 @@ pub async fn run_v2_list(args: &ListArgs, format: OutputFormat) -> Result<()> {
 
 pub async fn run_v2_info(args: &InfoArgs, format: OutputFormat) -> Result<()> {
     let client = VaultV2Client::new();
-    let chain: Chain = args.chain.0;
+    let chain: NamedChain = args.chain.0;
 
     let vault = client.get_vault(&args.address, chain).await?;
 
