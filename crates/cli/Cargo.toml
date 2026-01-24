@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 morpho-rs-api = { version = "0.3.0", path = "../api" }
-alloy-primitives = "0.8"
+alloy-primitives = "1.0"
 alloy-chains = "0.2"
 clap = { version = "4.5", features = ["derive", "env"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

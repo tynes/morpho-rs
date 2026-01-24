@@ -33,9 +33,8 @@ impl VaultV2TransactionClient {
             .map_err(|e| ContractError::RpcConnection(format!("{}", e)))?;
 
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(wallet)
-            .on_http(url);
+            .connect_http(url);
 
         Ok(Self {
             provider,
@@ -51,7 +50,7 @@ impl VaultV2TransactionClient {
             .call()
             .await
             .map_err(|e| ContractError::TransactionFailed(format!("Failed to get asset: {}", e)))?;
-        Ok(result._0)
+        Ok(result)
     }
 
     /// Get the decimals of a token.
@@ -60,7 +59,7 @@ impl VaultV2TransactionClient {
         let result = contract.decimals().call().await.map_err(|e| {
             ContractError::TransactionFailed(format!("Failed to get decimals: {}", e))
         })?;
-        Ok(result._0)
+        Ok(result)
     }
 
     /// Get the balance of a token for an address.
@@ -69,7 +68,7 @@ impl VaultV2TransactionClient {
         let result = contract.balanceOf(owner).call().await.map_err(|e| {
             ContractError::TransactionFailed(format!("Failed to get balance: {}", e))
         })?;
-        Ok(result._0)
+        Ok(result)
     }
 
     /// Get the allowance of a token for a spender.
@@ -83,7 +82,7 @@ impl VaultV2TransactionClient {
         let result = contract.allowance(owner, spender).call().await.map_err(|e| {
             ContractError::TransactionFailed(format!("Failed to get allowance: {}", e))
         })?;
-        Ok(result._0)
+        Ok(result)
     }
 
     /// Create a prepared approval transaction.

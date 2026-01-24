@@ -147,7 +147,7 @@ pub async fn run_v2_deposit(args: &DepositArgs) -> Result<()> {
 }
 
 /// Format gas with thousands separators.
-fn format_gas(gas: u128) -> String {
+fn format_gas(gas: u64) -> String {
     let s = gas.to_string();
     let mut result = String::new();
     for (i, c) in s.chars().rev().enumerate() {
