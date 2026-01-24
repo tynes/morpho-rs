@@ -2,6 +2,7 @@
 
 pub mod asset;
 pub mod chain;
+pub mod ordering;
 pub mod scalars;
 pub mod user;
 pub mod vault;
@@ -10,6 +11,7 @@ pub mod vault_v2;
 
 pub use asset::Asset;
 pub use chain::Chain;
+pub use ordering::{OrderDirection, VaultOrderByV1, VaultOrderByV2};
 pub use user::{
     MarketInfo, UserAccountOverview, UserMarketPosition, UserState, UserVaultPositions,
     UserVaultV1Position, UserVaultV2Position, VaultInfo, VaultPositionState,

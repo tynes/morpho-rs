@@ -8,7 +8,8 @@ use reqwest::Client;
 use url::Url;
 
 use crate::error::{ApiError, Result};
-use crate::filters::{VaultFiltersV1, VaultFiltersV2};
+use crate::filters::{VaultFiltersV1, VaultFiltersV2, VaultQueryOptionsV1, VaultQueryOptionsV2};
+use crate::types::ordering::{OrderDirection, VaultOrderByV1, VaultOrderByV2};
 use crate::queries::v1::{
     get_vault_v1_by_address, get_vaults_v1, GetVaultV1ByAddress, GetVaultsV1,
 };
@@ -137,6 +138,8 @@ impl VaultV1Client {
             first: Some(self.config.page_size),
             skip: Some(0),
             where_: filters.map(|f| f.to_gql()),
+            order_by: Some(VaultOrderByV1::default().to_gql()),
+            order_direction: Some(OrderDirection::default().to_gql_v1()),
         };
 
         let data = self.execute::<GetVaultsV1>(variables).await?;
@@ -191,6 +194,119 @@ impl VaultV1Client {
     /// Get whitelisted (listed) V1 vaults.
     pub async fn get_whitelisted_vaults(&self, chain: Option<Chain>) -> Result<Vec<VaultV1>> {
         let mut filters = VaultFiltersV1::new().listed(true);
+        if let Some(c) = chain {
+            filters = filters.chain(c);
+        }
+        self.get_vaults(Some(filters)).await
+    }
+
+    /// Get V1 vaults with query options (filters, ordering, and limit).
+    ///
+    /// This method provides full control over the query parameters including
+    /// ordering by various fields like APY, total assets, etc.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use morpho_rs_api::{VaultV1Client, VaultQueryOptionsV1, VaultFiltersV1, VaultOrderByV1, OrderDirection, Chain};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
+    ///     let client = VaultV1Client::new();
+    ///
+    ///     // Get top 10 USDC vaults by APY on Ethereum
+    ///     let options = VaultQueryOptionsV1::new()
+    ///         .filters(VaultFiltersV1::new()
+    ///             .chain(Chain::EthMainnet)
+    ///             .asset_symbols(["USDC"]))
+    ///         .order_by(VaultOrderByV1::NetApy)
+    ///         .order_direction(OrderDirection::Desc)
+    ///         .limit(10);
+    ///
+    ///     let vaults = client.get_vaults_with_options(options).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn get_vaults_with_options(
+        &self,
+        options: VaultQueryOptionsV1,
+    ) -> Result<Vec<VaultV1>> {
+        let variables = get_vaults_v1::Variables {
+            first: options.limit.or(Some(self.config.page_size)),
+            skip: Some(0),
+            where_: options.filters.map(|f| f.to_gql()),
+            order_by: Some(options.order_by.unwrap_or_default().to_gql()),
+            order_direction: Some(options.order_direction.unwrap_or_default().to_gql_v1()),
+        };
+
+        let data = self.execute::<GetVaultsV1>(variables).await?;
+
+        let items = match data.vaults.items {
+            Some(items) => items,
+            None => return Ok(Vec::new()),
+        };
+
+        let vaults: Vec<VaultV1> = items
+            .into_iter()
+            .filter_map(convert_v1_vault)
+            .collect();
+
+        Ok(vaults)
+    }
+
+    /// Get top N V1 vaults ordered by APY (highest first).
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use morpho_rs_api::{VaultV1Client, VaultFiltersV1, Chain};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
+    ///     let client = VaultV1Client::new();
+    ///
+    ///     // Get top 10 vaults by APY on Ethereum
+    ///     let filters = VaultFiltersV1::new().chain(Chain::EthMainnet);
+    ///     let vaults = client.get_top_vaults_by_apy(10, Some(filters)).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn get_top_vaults_by_apy(
+        &self,
+        limit: i64,
+        filters: Option<VaultFiltersV1>,
+    ) -> Result<Vec<VaultV1>> {
+        let options = VaultQueryOptionsV1 {
+            filters,
+            order_by: Some(VaultOrderByV1::NetApy),
+            order_direction: Some(OrderDirection::Desc),
+            limit: Some(limit),
+        };
+        self.get_vaults_with_options(options).await
+    }
+
+    /// Get V1 vaults for a specific deposit asset.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use morpho_rs_api::{VaultV1Client, Chain};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
+    ///     let client = VaultV1Client::new();
+    ///
+    ///     // Get all USDC vaults
+    ///     let vaults = client.get_vaults_by_asset("USDC", None).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn get_vaults_by_asset(
+        &self,
+        asset_symbol: &str,
+        chain: Option<Chain>,
+    ) -> Result<Vec<VaultV1>> {
+        let mut filters = VaultFiltersV1::new().asset_symbols([asset_symbol]);
         if let Some(c) = chain {
             filters = filters.chain(c);
         }
@@ -266,6 +382,8 @@ impl VaultV2Client {
             first: Some(self.config.page_size),
             skip: Some(0),
             where_: filters.map(|f| f.to_gql()),
+            order_by: Some(VaultOrderByV2::default().to_gql()),
+            order_direction: Some(OrderDirection::default().to_gql_v2()),
         };
 
         let data = self.execute::<GetVaultsV2>(variables).await?;
@@ -311,6 +429,158 @@ impl VaultV2Client {
             filters = filters.chain(c);
         }
         self.get_vaults(Some(filters)).await
+    }
+
+    /// Get V2 vaults with query options (filters, ordering, and limit).
+    ///
+    /// This method provides full control over the query parameters including
+    /// ordering by various fields like APY, total assets, liquidity, etc.
+    ///
+    /// Note: Asset filtering (by symbol or address) is done client-side since
+    /// the Morpho V2 API doesn't support server-side asset filtering.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use morpho_rs_api::{VaultV2Client, VaultQueryOptionsV2, VaultFiltersV2, VaultOrderByV2, OrderDirection, Chain};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
+    ///     let client = VaultV2Client::new();
+    ///
+    ///     // Get top 10 USDC vaults by APY on Ethereum
+    ///     let options = VaultQueryOptionsV2::new()
+    ///         .filters(VaultFiltersV2::new()
+    ///             .chain(Chain::EthMainnet))
+    ///         .order_by(VaultOrderByV2::NetApy)
+    ///         .order_direction(OrderDirection::Desc)
+    ///         .asset_symbols(["USDC"])  // Client-side filtering
+    ///         .limit(10);
+    ///
+    ///     let vaults = client.get_vaults_with_options(options).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn get_vaults_with_options(
+        &self,
+        options: VaultQueryOptionsV2,
+    ) -> Result<Vec<VaultV2>> {
+        // When using client-side asset filtering, we may need to fetch more results
+        // to ensure we have enough after filtering
+        let fetch_limit = if options.has_asset_filter() {
+            // Fetch more if we're going to filter client-side
+            options.limit.map(|l| l * 3).or(Some(self.config.page_size))
+        } else {
+            options.limit.or(Some(self.config.page_size))
+        };
+
+        let variables = get_vaults_v2::Variables {
+            first: fetch_limit,
+            skip: Some(0),
+            where_: options.filters.map(|f| f.to_gql()),
+            order_by: Some(options.order_by.unwrap_or_default().to_gql()),
+            order_direction: Some(options.order_direction.unwrap_or_default().to_gql_v2()),
+        };
+
+        let data = self.execute::<GetVaultsV2>(variables).await?;
+
+        let items = match data.vault_v2s.items {
+            Some(items) => items,
+            None => return Ok(Vec::new()),
+        };
+
+        let mut vaults: Vec<VaultV2> = items
+            .into_iter()
+            .filter_map(convert_v2_vault)
+            .collect();
+
+        // Apply client-side asset filtering
+        if let Some(ref symbols) = options.asset_symbols {
+            vaults.retain(|v| symbols.iter().any(|s| s.eq_ignore_ascii_case(&v.asset.symbol)));
+        }
+        if let Some(ref addresses) = options.asset_addresses {
+            vaults.retain(|v| {
+                addresses
+                    .iter()
+                    .any(|a| v.asset.address.to_string().eq_ignore_ascii_case(a))
+            });
+        }
+
+        // Apply limit after client-side filtering
+        if let Some(limit) = options.limit {
+            vaults.truncate(limit as usize);
+        }
+
+        Ok(vaults)
+    }
+
+    /// Get top N V2 vaults ordered by APY (highest first).
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use morpho_rs_api::{VaultV2Client, VaultFiltersV2, Chain};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
+    ///     let client = VaultV2Client::new();
+    ///
+    ///     // Get top 10 vaults by APY on Ethereum
+    ///     let filters = VaultFiltersV2::new().chain(Chain::EthMainnet);
+    ///     let vaults = client.get_top_vaults_by_apy(10, Some(filters)).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn get_top_vaults_by_apy(
+        &self,
+        limit: i64,
+        filters: Option<VaultFiltersV2>,
+    ) -> Result<Vec<VaultV2>> {
+        let options = VaultQueryOptionsV2 {
+            filters,
+            order_by: Some(VaultOrderByV2::NetApy),
+            order_direction: Some(OrderDirection::Desc),
+            limit: Some(limit),
+            asset_addresses: None,
+            asset_symbols: None,
+        };
+        self.get_vaults_with_options(options).await
+    }
+
+    /// Get V2 vaults for a specific deposit asset.
+    ///
+    /// Note: This filtering is done client-side since the Morpho V2 API
+    /// doesn't support server-side asset filtering.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use morpho_rs_api::{VaultV2Client, Chain};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
+    ///     let client = VaultV2Client::new();
+    ///
+    ///     // Get all USDC vaults
+    ///     let vaults = client.get_vaults_by_asset("USDC", None).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn get_vaults_by_asset(
+        &self,
+        asset_symbol: &str,
+        chain: Option<Chain>,
+    ) -> Result<Vec<VaultV2>> {
+        let filters = chain.map(|c| VaultFiltersV2::new().chain(c));
+        let options = VaultQueryOptionsV2 {
+            filters,
+            order_by: None,
+            order_direction: None,
+            limit: None,
+            asset_addresses: None,
+            asset_symbols: Some(vec![asset_symbol.to_string()]),
+        };
+        self.get_vaults_with_options(options).await
     }
 }
 

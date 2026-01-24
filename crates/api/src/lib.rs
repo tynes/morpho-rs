@@ -46,11 +46,12 @@ pub use client::{
     VaultV1Operations, VaultV2Client, VaultV2Operations, DEFAULT_API_URL,
 };
 pub use error::{ApiError, Result};
-pub use filters::{VaultFiltersV1, VaultFiltersV2};
+pub use filters::{VaultFiltersV1, VaultFiltersV2, VaultQueryOptionsV1, VaultQueryOptionsV2};
 pub use morpho_rs_contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
 pub use types::{
-    Asset, Chain, MarketInfo, UserAccountOverview, UserMarketPosition, UserState,
+    Asset, Chain, MarketInfo, OrderDirection, UserAccountOverview, UserMarketPosition, UserState,
     UserVaultPositions, UserVaultV1Position, UserVaultV2Position, Vault, VaultAdapter,
-    VaultAllocation, VaultAllocator, VaultInfo, VaultPositionState, VaultReward, VaultStateV1,
-    VaultV1, VaultV2, VaultV2Warning, VaultVersion, VaultWarning,
+    VaultAllocation, VaultAllocator, VaultInfo, VaultOrderByV1, VaultOrderByV2,
+    VaultPositionState, VaultReward, VaultStateV1, VaultV1, VaultV2, VaultV2Warning, VaultVersion,
+    VaultWarning,
 };

@@ -2,8 +2,10 @@ query GetVaultsV2(
   $first: Int
   $skip: Int
   $where: VaultV2sFilters
+  $orderBy: VaultV2OrderBy
+  $orderDirection: OrderDirection
 ) {
-  vaultV2s(first: $first, skip: $skip, where: $where) {
+  vaultV2s(first: $first, skip: $skip, where: $where, orderBy: $orderBy, orderDirection: $orderDirection) {
     items {
       id
       address
