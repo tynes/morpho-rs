@@ -2582,7 +2582,7 @@ dependencies = [
 
 [[package]]
 name = "morpho-rs-api"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "alloy",
  "alloy-chains",
@@ -2601,7 +2601,7 @@ dependencies = [
 
 [[package]]
 name = "morpho-rs-cli"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "alloy-chains",
  "alloy-primitives",
@@ -2616,7 +2616,7 @@ dependencies = [
 
 [[package]]
 name = "morpho-rs-contracts"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "alloy",
  "alloy-primitives",
@@ -2627,7 +2627,7 @@ dependencies = [
 
 [[package]]
 name = "morpho-rs-sim"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "alloy-primitives",
  "thiserror 2.0.18",
