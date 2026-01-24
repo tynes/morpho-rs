@@ -1449,7 +1449,7 @@ fn convert_v2_adapter_single(
 fn convert_user_vault_v1_position(
     p: get_user_vault_positions::GetUserVaultPositionsUserByAddressVaultPositions,
 ) -> Option<UserVaultV1Position> {
-    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol)?;
+    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol, p.vault.chain.id)?;
 
     let state = p.state.as_ref().and_then(|s| {
         VaultPositionState::from_gql(
@@ -1469,7 +1469,7 @@ fn convert_user_vault_v1_position(
 fn convert_user_vault_v2_position(
     p: get_user_vault_positions::GetUserVaultPositionsUserByAddressVaultV2Positions,
 ) -> Option<UserVaultV2Position> {
-    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol)?;
+    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol, p.vault.chain.id)?;
 
     UserVaultV2Position::from_gql(
         p.id,
@@ -1487,7 +1487,7 @@ fn convert_user_vault_v2_position(
 fn convert_user_vault_v1_position_overview(
     p: get_user_account_overview::GetUserAccountOverviewUserByAddressVaultPositions,
 ) -> Option<UserVaultV1Position> {
-    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol)?;
+    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol, p.vault.chain.id)?;
 
     let state = p.state.as_ref().and_then(|s| {
         VaultPositionState::from_gql(
@@ -1507,7 +1507,7 @@ fn convert_user_vault_v1_position_overview(
 fn convert_user_vault_v2_position_overview(
     p: get_user_account_overview::GetUserAccountOverviewUserByAddressVaultV2Positions,
 ) -> Option<UserVaultV2Position> {
-    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol)?;
+    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol, p.vault.chain.id)?;
 
     UserVaultV2Position::from_gql(
         p.id,

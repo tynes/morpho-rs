@@ -3,6 +3,7 @@
 use alloy_primitives::{Address, U256};
 use serde::{Deserialize, Serialize};
 
+use super::chain::Chain;
 use super::scalars::{parse_address, parse_bigint};
 
 /// Basic vault info for positions.
@@ -14,6 +15,8 @@ pub struct VaultInfo {
     pub name: String,
     /// The vault's symbol.
     pub symbol: String,
+    /// The blockchain the vault is deployed on.
+    pub chain: Chain,
 }
 
 /// State of a vault position.
@@ -190,11 +193,12 @@ pub struct UserAccountOverview {
 
 impl VaultInfo {
     /// Create a VaultInfo from GraphQL response data.
-    pub fn from_gql(address: &str, name: String, symbol: String) -> Option<Self> {
+    pub fn from_gql(address: &str, name: String, symbol: String, chain_id: i64) -> Option<Self> {
         Some(VaultInfo {
             address: parse_address(address)?,
             name,
             symbol,
+            chain: Chain::from_id(chain_id)?,
         })
     }
 }

@@ -11,6 +11,9 @@ query GetUserVaultPositions($address: String!, $chainId: Int!) {
         address
         name
         symbol
+        chain {
+          id
+        }
       }
       state {
         shares
@@ -35,6 +38,9 @@ query GetUserVaultPositions($address: String!, $chainId: Int!) {
         address
         name
         symbol
+        chain {
+          id
+        }
       }
     }
   }
@@ -75,6 +81,9 @@ query GetUserAccountOverview($address: String!, $chainId: Int!) {
         address
         name
         symbol
+        chain {
+          id
+        }
       }
       state {
         shares
@@ -99,6 +108,9 @@ query GetUserAccountOverview($address: String!, $chainId: Int!) {
         address
         name
         symbol
+        chain {
+          id
+        }
       }
     }
     marketPositions {

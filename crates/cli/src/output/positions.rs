@@ -10,6 +10,8 @@ use tabled::{
 struct PositionRow {
     #[tabled(rename = "Type")]
     vault_type: String,
+    #[tabled(rename = "Chain")]
+    chain: String,
     #[tabled(rename = "Vault Name")]
     name: String,
     #[tabled(rename = "Symbol")]
@@ -66,6 +68,7 @@ pub fn format_user_positions(positions: &UserVaultPositions) -> String {
 
         rows.push(PositionRow {
             vault_type: "V1".to_string(),
+            chain: pos.vault.chain.network().to_string(),
             name: truncate_name(&pos.vault.name, 25),
             symbol: pos.vault.symbol.clone(),
             address: truncate_address(&format!("{}", pos.vault.address)),
@@ -78,6 +81,7 @@ pub fn format_user_positions(positions: &UserVaultPositions) -> String {
     for pos in &positions.vault_v2_positions {
         rows.push(PositionRow {
             vault_type: "V2".to_string(),
+            chain: pos.vault.chain.network().to_string(),
             name: truncate_name(&pos.vault.name, 25),
             symbol: pos.vault.symbol.clone(),
             address: truncate_address(&format!("{}", pos.vault.address)),
