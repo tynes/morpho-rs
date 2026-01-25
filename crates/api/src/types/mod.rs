@@ -4,6 +4,7 @@ pub mod asset;
 pub mod chain;
 pub mod ordering;
 pub mod scalars;
+pub mod simulation;
 pub mod user;
 pub mod vault;
 pub mod vault_v1;
@@ -20,3 +21,4 @@ pub use user::{
 pub use vault::{Vault, VaultVersion};
 pub use vault_v1::{VaultAllocation, VaultAllocator, VaultStateV1, VaultV1, VaultWarning};
 pub use vault_v2::{VaultAdapter, VaultReward, VaultV2, VaultV2Warning};
+pub use simulation::{MarketStateForSim, VaultAllocationForSim, VaultSimulationData};

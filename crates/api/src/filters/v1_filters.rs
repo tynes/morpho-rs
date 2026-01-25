@@ -2,6 +2,7 @@
 
 use alloy_chains::NamedChain;
 
+use crate::queries::simulation::get_vaults_for_simulation::VaultFilters as SimVaultFilters;
 use crate::queries::v1::get_vaults_v1::VaultFilters;
 
 /// Builder for V1 vault query filters.
@@ -135,6 +136,46 @@ impl VaultFiltersV1 {
     /// Convert to GraphQL filter input type.
     pub fn to_gql(&self) -> VaultFilters {
         VaultFilters {
+            chain_id_in: self.chain_ids.clone().map(|ids| ids.into_iter().map(|id| id as i64).collect()),
+            address_in: self.addresses.clone(),
+            listed: self.listed,
+            featured: self.featured,
+            curator_address_in: self.curator_addresses.clone(),
+            owner_address_in: self.owner_addresses.clone(),
+            asset_address_in: self.asset_addresses.clone(),
+            asset_symbol_in: self.asset_symbols.clone(),
+            apy_gte: self.apy_gte,
+            apy_lte: self.apy_lte,
+            search: self.search.clone(),
+            // Set other fields to None
+            id_in: None,
+            address_not_in: None,
+            creator_address_in: None,
+            factory_address_in: None,
+            symbol_in: None,
+            asset_id_in: None,
+            asset_tags_in: None,
+            market_unique_key_in: None,
+            country_code: None,
+            curator_in: None,
+            fee_gte: None,
+            fee_lte: None,
+            net_apy_gte: None,
+            net_apy_lte: None,
+            total_assets_gte: None,
+            total_assets_lte: None,
+            total_assets_usd_gte: None,
+            total_assets_usd_lte: None,
+            total_supply_gte: None,
+            total_supply_lte: None,
+            public_allocator_fee_lte: None,
+            public_allocator_fee_usd_lte: None,
+        }
+    }
+
+    /// Convert to GraphQL filter input type for simulation queries.
+    pub fn to_gql_sim(&self) -> SimVaultFilters {
+        SimVaultFilters {
             chain_id_in: self.chain_ids.clone().map(|ids| ids.into_iter().map(|id| id as i64).collect()),
             address_in: self.addresses.clone(),
             listed: self.listed,

@@ -1,5 +1,8 @@
 //! Ordering types for vault queries.
 
+use crate::queries::simulation::get_vaults_for_simulation::{
+    OrderDirection as OrderDirectionSim, VaultOrderBy as VaultOrderBySimGql,
+};
 use crate::queries::v1::get_vaults_v1::{
     OrderDirection as OrderDirectionV1, VaultOrderBy as VaultOrderByV1Gql,
 };
@@ -31,6 +34,14 @@ impl OrderDirection {
         match self {
             OrderDirection::Asc => OrderDirectionV2::Asc,
             OrderDirection::Desc => OrderDirectionV2::Desc,
+        }
+    }
+
+    /// Convert to simulation GraphQL order direction.
+    pub(crate) fn to_gql_sim(self) -> OrderDirectionSim {
+        match self {
+            OrderDirection::Asc => OrderDirectionSim::Asc,
+            OrderDirection::Desc => OrderDirectionSim::Desc,
         }
     }
 }
@@ -87,6 +98,26 @@ impl VaultOrderByV1 {
             VaultOrderByV1::DailyApy => VaultOrderByV1Gql::DailyApy,
             VaultOrderByV1::DailyNetApy => VaultOrderByV1Gql::DailyNetApy,
             VaultOrderByV1::CredoraRiskScore => VaultOrderByV1Gql::CredoraRiskScore,
+        }
+    }
+
+    /// Convert to simulation GraphQL order by type.
+    pub(crate) fn to_gql_sim(self) -> VaultOrderBySimGql {
+        match self {
+            VaultOrderByV1::Address => VaultOrderBySimGql::Address,
+            VaultOrderByV1::TotalAssets => VaultOrderBySimGql::TotalAssets,
+            VaultOrderByV1::TotalAssetsUsd => VaultOrderBySimGql::TotalAssetsUsd,
+            VaultOrderByV1::TotalSupply => VaultOrderBySimGql::TotalSupply,
+            VaultOrderByV1::Fee => VaultOrderBySimGql::Fee,
+            VaultOrderByV1::Apy => VaultOrderBySimGql::Apy,
+            VaultOrderByV1::NetApy => VaultOrderBySimGql::NetApy,
+            VaultOrderByV1::Name => VaultOrderBySimGql::Name,
+            VaultOrderByV1::Curator => VaultOrderBySimGql::Curator,
+            VaultOrderByV1::AvgApy => VaultOrderBySimGql::AvgApy,
+            VaultOrderByV1::AvgNetApy => VaultOrderBySimGql::AvgNetApy,
+            VaultOrderByV1::DailyApy => VaultOrderBySimGql::DailyApy,
+            VaultOrderByV1::DailyNetApy => VaultOrderBySimGql::DailyNetApy,
+            VaultOrderByV1::CredoraRiskScore => VaultOrderBySimGql::CredoraRiskScore,
         }
     }
 }
