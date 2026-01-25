@@ -1,7 +1,7 @@
 //! V2 vault types.
 
 use alloy_chains::NamedChain;
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{Address, B256, U256};
 use serde::{Deserialize, Serialize};
 
 use super::asset::Asset;
@@ -62,6 +62,78 @@ pub struct VaultV2 {
     pub warnings: Vec<VaultV2Warning>,
 }
 
+/// Market state data needed for simulation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MarketStateV2 {
+    /// Market unique identifier (32-byte hash).
+    pub id: B256,
+    /// Total loan assets supplied to the market.
+    pub total_supply_assets: U256,
+    /// Total loan assets borrowed from the market.
+    pub total_borrow_assets: U256,
+    /// Total supply shares representing lender positions.
+    pub total_supply_shares: U256,
+    /// Total borrow shares representing borrower debt.
+    pub total_borrow_shares: U256,
+    /// Timestamp of last interest accrual.
+    pub last_update: u64,
+    /// Protocol fee (WAD-scaled, e.g., 0.1 WAD = 10%).
+    pub fee: U256,
+    /// Rate at target utilization for Adaptive Curve IRM (None for other IRMs).
+    pub rate_at_target: Option<U256>,
+    /// Oracle price (collateral/loan, scaled by 1e36). None if unavailable.
+    pub price: Option<U256>,
+    /// Liquidation LTV (WAD-scaled).
+    pub lltv: U256,
+}
+
+/// Position in a MorphoMarketV1 adapter.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MorphoMarketPosition {
+    /// Supply assets in this position.
+    pub supply_assets: U256,
+    /// Supply shares in this position.
+    pub supply_shares: U256,
+    /// Market unique key.
+    pub market_id: B256,
+    /// Full market state for simulation.
+    pub market_state: Option<MarketStateV2>,
+}
+
+/// Allocation in a MetaMorpho adapter.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MetaMorphoAllocation {
+    /// Supply assets in this allocation.
+    pub supply_assets: U256,
+    /// Supply cap for this market.
+    pub supply_cap: U256,
+    /// Whether this market is enabled.
+    pub enabled: bool,
+    /// Position in the supply queue.
+    pub supply_queue_index: Option<i32>,
+    /// Position in the withdraw queue.
+    pub withdraw_queue_index: Option<i32>,
+    /// Market unique key.
+    pub market_id: B256,
+    /// Full market state for simulation.
+    pub market_state: Option<MarketStateV2>,
+}
+
+/// Adapter-specific data for simulation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum VaultAdapterData {
+    /// MorphoMarketV1 adapter positions.
+    MorphoMarketV1 {
+        /// Positions in Morpho markets.
+        positions: Vec<MorphoMarketPosition>,
+    },
+    /// MetaMorpho adapter allocations.
+    MetaMorpho {
+        /// Allocations to underlying markets.
+        allocations: Vec<MetaMorphoAllocation>,
+    },
+}
+
 /// Vault adapter configuration.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VaultAdapter {
@@ -75,6 +147,8 @@ pub struct VaultAdapter {
     pub assets: U256,
     /// Assets held in USD.
     pub assets_usd: Option<f64>,
+    /// Adapter-specific data for simulation.
+    pub data: Option<VaultAdapterData>,
 }
 
 /// Vault reward configuration.
@@ -165,6 +239,7 @@ impl VaultAdapter {
         adapter_type: String,
         assets: &str,
         assets_usd: Option<f64>,
+        data: Option<VaultAdapterData>,
     ) -> Option<Self> {
         Some(VaultAdapter {
             id,
@@ -172,6 +247,7 @@ impl VaultAdapter {
             adapter_type,
             assets: parse_bigint(assets).unwrap_or(U256::ZERO),
             assets_usd,
+            data,
         })
     }
 }
@@ -193,6 +269,120 @@ impl VaultReward {
     }
 }
 
+// Simulation conversion methods (only available with "sim" feature)
+#[cfg(feature = "sim")]
+mod sim_conversion {
+    use super::*;
+    use morpho_rs_sim::{Market, Vault, VaultMarketConfig, VaultSimulation};
+    use std::collections::HashMap;
+
+    impl VaultV2 {
+        /// Convert this vault to a VaultSimulation for APY and deposit/withdrawal calculations.
+        ///
+        /// This method extracts allocation data from MetaMorpho adapters. V2 vaults may have
+        /// multiple adapter types; only MetaMorpho adapters contain the queue-based allocation
+        /// structure needed for simulation.
+        ///
+        /// Returns `None` if no MetaMorpho adapter with valid allocation data is found.
+        ///
+        /// # Example
+        ///
+        /// ```ignore
+        /// use morpho_rs_api::VaultV2;
+        ///
+        /// let vault: VaultV2 = /* fetch from API */;
+        /// if let Some(simulation) = vault.to_vault_simulation() {
+        ///     let apy = simulation.get_net_apy(timestamp)?;
+        ///     let (new_sim, shares) = simulation.simulate_deposit(amount, timestamp)?;
+        /// }
+        /// ```
+        pub fn to_vault_simulation(&self) -> Option<VaultSimulation> {
+            // Find MetaMorpho adapter with allocations
+            let meta_morpho_allocations = self.adapters.iter().find_map(|adapter| {
+                match &adapter.data {
+                    Some(VaultAdapterData::MetaMorpho { allocations }) => Some(allocations.clone()),
+                    _ => None,
+                }
+            })?;
+
+            // Build supply and withdraw queues by sorting allocations by queue index
+            let mut supply_queue_items: Vec<_> = meta_morpho_allocations
+                .iter()
+                .filter_map(|a| {
+                    a.supply_queue_index.map(|idx| (idx, a.market_id))
+                })
+                .collect();
+            supply_queue_items.sort_by_key(|(idx, _)| *idx);
+            let supply_queue: Vec<B256> = supply_queue_items.into_iter().map(|(_, id)| id).collect();
+
+            let mut withdraw_queue_items: Vec<_> = meta_morpho_allocations
+                .iter()
+                .filter_map(|a| {
+                    a.withdraw_queue_index.map(|idx| (idx, a.market_id))
+                })
+                .collect();
+            withdraw_queue_items.sort_by_key(|(idx, _)| *idx);
+            let withdraw_queue: Vec<B256> = withdraw_queue_items.into_iter().map(|(_, id)| id).collect();
+
+            // Build allocations HashMap
+            let mut allocations = HashMap::new();
+            for alloc in &meta_morpho_allocations {
+                allocations.insert(
+                    alloc.market_id,
+                    VaultMarketConfig {
+                        market_id: alloc.market_id,
+                        cap: alloc.supply_cap,
+                        supply_assets: alloc.supply_assets,
+                        enabled: alloc.enabled,
+                        public_allocator_config: None, // Not available from API
+                    },
+                );
+            }
+
+            // Build markets HashMap
+            let mut markets = HashMap::new();
+            for alloc in &meta_morpho_allocations {
+                if let Some(ms) = &alloc.market_state {
+                    let market = Market::new_with_oracle(
+                        ms.id,
+                        ms.total_supply_assets,
+                        ms.total_borrow_assets,
+                        ms.total_supply_shares,
+                        ms.total_borrow_shares,
+                        ms.last_update,
+                        ms.fee,
+                        ms.rate_at_target,
+                        ms.price,
+                        ms.lltv,
+                    );
+                    markets.insert(ms.id, market);
+                }
+            }
+
+            // Convert fee from fraction to WAD-scaled
+            // API returns fee as fraction (0.1 = 10%), sim expects WAD (0.1 * 1e18)
+            let fee = self.performance_fee.unwrap_or(0.0);
+            let fee_wad = U256::from((fee * 1e18) as u128);
+
+            let vault = Vault {
+                address: self.address,
+                asset_decimals: self.asset.decimals,
+                fee: fee_wad,
+                total_assets: self.total_assets,
+                total_supply: self.total_supply,
+                last_total_assets: self.total_assets, // Assume current state is synced
+                supply_queue,
+                withdraw_queue,
+                allocations,
+                owner: self.owner.unwrap_or(Address::ZERO),
+                public_allocator_config: None, // Not available from API
+            };
+
+            Some(VaultSimulation::new(vault, markets))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,6 +395,7 @@ mod tests {
             "MetaMorpho".to_string(),
             "1000000000000000000",
             Some(1000.0),
+            None,
         )
         .unwrap();
         assert_eq!(adapter.id, "adapter-1");

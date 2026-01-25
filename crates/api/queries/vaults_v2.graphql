@@ -50,6 +50,55 @@ query GetVaultsV2(
           type
           assets
           assetsUsd
+          ... on MorphoMarketV1Adapter {
+            positions {
+              items {
+                supplyAssets
+                supplyShares
+                market {
+                  uniqueKey
+                  lltv
+                  state {
+                    supplyAssets
+                    borrowAssets
+                    supplyShares
+                    borrowShares
+                    timestamp
+                    fee
+                    rateAtTarget
+                    price
+                  }
+                }
+              }
+            }
+          }
+          ... on MetaMorphoAdapter {
+            metaMorpho {
+              state {
+                allocation {
+                  supplyAssets
+                  supplyCap
+                  enabled
+                  supplyQueueIndex
+                  withdrawQueueIndex
+                  market {
+                    uniqueKey
+                    lltv
+                    state {
+                      supplyAssets
+                      borrowAssets
+                      supplyShares
+                      borrowShares
+                      timestamp
+                      fee
+                      rateAtTarget
+                      price
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
       rewards {
@@ -117,6 +166,55 @@ query GetVaultV2ByAddress($address: String!, $chainId: Int!) {
         type
         assets
         assetsUsd
+        ... on MorphoMarketV1Adapter {
+          positions {
+            items {
+              supplyAssets
+              supplyShares
+              market {
+                uniqueKey
+                lltv
+                state {
+                  supplyAssets
+                  borrowAssets
+                  supplyShares
+                  borrowShares
+                  timestamp
+                  fee
+                  rateAtTarget
+                  price
+                }
+              }
+            }
+          }
+        }
+        ... on MetaMorphoAdapter {
+          metaMorpho {
+            state {
+              allocation {
+                supplyAssets
+                supplyCap
+                enabled
+                supplyQueueIndex
+                withdrawQueueIndex
+                market {
+                  uniqueKey
+                  lltv
+                  state {
+                    supplyAssets
+                    borrowAssets
+                    supplyShares
+                    borrowShares
+                    timestamp
+                    fee
+                    rateAtTarget
+                    price
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
     rewards {
