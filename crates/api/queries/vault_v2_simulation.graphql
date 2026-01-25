@@ -1,0 +1,142 @@
+# Query to fetch V2 vault data for simulation with adapter positions and market state.
+query GetVaultV2ForSimulation($address: String!, $chainId: Int!) {
+  vaultV2ByAddress(address: $address, chainId: $chainId) {
+    address
+    asset {
+      decimals
+    }
+    totalAssets
+    totalSupply
+    performanceFee
+    adapters {
+      items {
+        __typename
+        ... on MorphoMarketV1Adapter {
+          positions {
+            items {
+              supplyAssets
+              supplyShares
+              market {
+                uniqueKey
+                lltv
+                state {
+                  supplyAssets
+                  borrowAssets
+                  supplyShares
+                  borrowShares
+                  timestamp
+                  fee
+                  rateAtTarget
+                  price
+                }
+              }
+            }
+          }
+        }
+        ... on MetaMorphoAdapter {
+          metaMorpho {
+            state {
+              allocation {
+                supplyAssets
+                supplyCap
+                enabled
+                supplyQueueIndex
+                withdrawQueueIndex
+                market {
+                  uniqueKey
+                  lltv
+                  state {
+                    supplyAssets
+                    borrowAssets
+                    supplyShares
+                    borrowShares
+                    timestamp
+                    fee
+                    rateAtTarget
+                    price
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# Query to fetch multiple V2 vaults for simulation.
+query GetVaultsV2ForSimulation(
+  $first: Int
+  $skip: Int
+  $where: VaultV2sFilters
+  $orderBy: VaultV2OrderBy
+  $orderDirection: OrderDirection
+) {
+  vaultV2s(first: $first, skip: $skip, where: $where, orderBy: $orderBy, orderDirection: $orderDirection) {
+    items {
+      address
+      asset {
+        decimals
+      }
+      totalAssets
+      totalAssetsUsd
+      totalSupply
+      performanceFee
+      adapters {
+        items {
+          __typename
+          ... on MorphoMarketV1Adapter {
+            positions {
+              items {
+                supplyAssets
+                supplyShares
+                market {
+                  uniqueKey
+                  lltv
+                  state {
+                    supplyAssets
+                    borrowAssets
+                    supplyShares
+                    borrowShares
+                    timestamp
+                    fee
+                    rateAtTarget
+                    price
+                  }
+                }
+              }
+            }
+          }
+          ... on MetaMorphoAdapter {
+            metaMorpho {
+              state {
+                allocation {
+                  supplyAssets
+                  supplyCap
+                  enabled
+                  supplyQueueIndex
+                  withdrawQueueIndex
+                  market {
+                    uniqueKey
+                    lltv
+                    state {
+                      supplyAssets
+                      borrowAssets
+                      supplyShares
+                      borrowShares
+                      timestamp
+                      fee
+                      rateAtTarget
+                      price
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

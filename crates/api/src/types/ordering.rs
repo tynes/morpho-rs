@@ -9,6 +9,9 @@ use crate::queries::v1::get_vaults_v1::{
 use crate::queries::v2::get_vaults_v2::{
     OrderDirection as OrderDirectionV2, VaultV2OrderBy as VaultV2OrderByGql,
 };
+use crate::queries::v2_simulation::get_vaults_v2_for_simulation::{
+    OrderDirection as OrderDirectionSimV2, VaultV2OrderBy as VaultV2OrderBySimGql,
+};
 
 /// Order direction for queries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -42,6 +45,14 @@ impl OrderDirection {
         match self {
             OrderDirection::Asc => OrderDirectionSim::Asc,
             OrderDirection::Desc => OrderDirectionSim::Desc,
+        }
+    }
+
+    /// Convert to V2 simulation GraphQL order direction.
+    pub(crate) fn to_gql_sim_v2(self) -> OrderDirectionSimV2 {
+        match self {
+            OrderDirection::Asc => OrderDirectionSimV2::Asc,
+            OrderDirection::Desc => OrderDirectionSimV2::Desc,
         }
     }
 }
@@ -168,6 +179,24 @@ impl VaultOrderByV2 {
             VaultOrderByV2::RealAssetsUsd => VaultV2OrderByGql::RealAssetsUsd,
             VaultOrderByV2::IdleAssets => VaultV2OrderByGql::IdleAssets,
             VaultOrderByV2::IdleAssetsUsd => VaultV2OrderByGql::IdleAssetsUsd,
+        }
+    }
+
+    /// Convert to V2 simulation GraphQL order by type.
+    pub(crate) fn to_gql_sim(self) -> VaultV2OrderBySimGql {
+        match self {
+            VaultOrderByV2::Address => VaultV2OrderBySimGql::Address,
+            VaultOrderByV2::TotalAssets => VaultV2OrderBySimGql::TotalAssets,
+            VaultOrderByV2::TotalAssetsUsd => VaultV2OrderBySimGql::TotalAssetsUsd,
+            VaultOrderByV2::TotalSupply => VaultV2OrderBySimGql::TotalSupply,
+            VaultOrderByV2::Liquidity => VaultV2OrderBySimGql::Liquidity,
+            VaultOrderByV2::LiquidityUsd => VaultV2OrderBySimGql::LiquidityUsd,
+            VaultOrderByV2::Apy => VaultV2OrderBySimGql::Apy,
+            VaultOrderByV2::NetApy => VaultV2OrderBySimGql::NetApy,
+            VaultOrderByV2::RealAssets => VaultV2OrderBySimGql::RealAssets,
+            VaultOrderByV2::RealAssetsUsd => VaultV2OrderBySimGql::RealAssetsUsd,
+            VaultOrderByV2::IdleAssets => VaultV2OrderBySimGql::IdleAssets,
+            VaultOrderByV2::IdleAssetsUsd => VaultV2OrderBySimGql::IdleAssetsUsd,
         }
     }
 }

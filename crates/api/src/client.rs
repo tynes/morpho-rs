@@ -24,6 +24,10 @@ use crate::queries::user::{
 use crate::queries::v2::{
     get_vault_v2_by_address, get_vaults_v2, GetVaultV2ByAddress, GetVaultsV2,
 };
+use crate::queries::v2_simulation::{
+    get_vault_v2_for_simulation, get_vaults_v2_for_simulation, GetVaultV2ForSimulation,
+    GetVaultsV2ForSimulation,
+};
 use crate::types::{
     Asset, MarketInfo, MarketStateForSim, NamedChain, UserAccountOverview, UserMarketPosition,
     UserState, UserVaultPositions, UserVaultV1Position, UserVaultV2Position, Vault, VaultAdapter,
@@ -683,6 +687,107 @@ impl VaultV2Client {
             asset_symbols: Some(vec![asset_symbol.to_string()]),
         };
         self.get_vaults_with_options(options).await
+    }
+
+    /// Get V2 vault data needed for APY simulation.
+    ///
+    /// Fetches all data required to construct a `VaultSimulation` from `morpho-rs-sim`,
+    /// including vault state, adapter positions, and market state data.
+    ///
+    /// V2 vaults use an adapter architecture where allocations come from either:
+    /// - `MorphoMarketV1Adapter`: Direct market positions
+    /// - `MetaMorphoAdapter`: Nested V1 vault allocations
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use morpho_rs_api::{VaultV2Client, NamedChain};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
+    ///     let client = VaultV2Client::new();
+    ///
+    ///     let vault_data = client.get_vault_for_simulation(
+    ///         "0x...",
+    ///         NamedChain::Mainnet,
+    ///     ).await?;
+    ///
+    ///     println!("Total assets: {}", vault_data.total_assets);
+    ///     println!("Markets: {}", vault_data.markets.len());
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn get_vault_for_simulation(
+        &self,
+        address: &str,
+        chain: NamedChain,
+    ) -> Result<VaultSimulationData> {
+        let variables = get_vault_v2_for_simulation::Variables {
+            address: address.to_string(),
+            chain_id: u64::from(chain) as i64,
+        };
+
+        let data = self.execute::<GetVaultV2ForSimulation>(variables).await?;
+
+        convert_vault_v2_for_simulation_single(data.vault_v2_by_address).ok_or_else(|| {
+            ApiError::VaultNotFound {
+                address: address.to_string(),
+                chain_id: u64::from(chain) as i64,
+            }
+        })
+    }
+
+    /// Batch get simulation data for multiple V2 vaults.
+    ///
+    /// Fetches simulation data for V2 vaults matching the specified filters.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use morpho_rs_api::{VaultV2Client, VaultFiltersV2, NamedChain};
+    ///
+    /// #[tokio::main]
+    /// async fn main() -> Result<(), morpho_rs_api::ApiError> {
+    ///     let client = VaultV2Client::new();
+    ///
+    ///     let filters = VaultFiltersV2::new()
+    ///         .chain(NamedChain::Mainnet)
+    ///         .listed(true);
+    ///
+    ///     let vaults = client.get_vaults_for_simulation(Some(filters), 50).await?;
+    ///
+    ///     for vault in &vaults {
+    ///         println!("Vault {}: {} markets", vault.address, vault.markets.len());
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn get_vaults_for_simulation(
+        &self,
+        filters: Option<VaultFiltersV2>,
+        limit: i64,
+    ) -> Result<Vec<VaultSimulationData>> {
+        let variables = get_vaults_v2_for_simulation::Variables {
+            first: Some(limit),
+            skip: Some(0),
+            where_: filters.map(|f| f.to_gql_sim()),
+            order_by: Some(VaultOrderByV2::default().to_gql_sim()),
+            order_direction: Some(OrderDirection::default().to_gql_sim_v2()),
+        };
+
+        let data = self.execute::<GetVaultsV2ForSimulation>(variables).await?;
+
+        let items = match data.vault_v2s.items {
+            Some(items) => items,
+            None => return Ok(Vec::new()),
+        };
+
+        let vaults: Vec<VaultSimulationData> = items
+            .into_iter()
+            .filter_map(convert_vault_v2_for_simulation)
+            .collect();
+
+        Ok(vaults)
     }
 }
 
@@ -1875,6 +1980,208 @@ fn convert_vault_for_simulation_single(
         fee,
         total_assets,
         total_assets_usd: state.total_assets_usd,
+        total_supply,
+        allocations,
+        markets,
+    })
+}
+
+// V2 vault simulation conversion functions
+
+#[allow(unreachable_patterns)]
+fn convert_vault_v2_for_simulation(
+    v: get_vaults_v2_for_simulation::GetVaultsV2ForSimulationVaultV2sItems,
+) -> Option<VaultSimulationData> {
+    let address = Address::from_str(&v.address).ok()?;
+    let asset_decimals = v.asset.decimals as u8;
+
+    let fee = fee_to_wad(v.performance_fee);
+    let total_assets = v.total_assets.as_ref().and_then(|s| parse_bigint(s))?;
+    let total_supply = parse_bigint(&v.total_supply)?;
+
+    let mut allocations = Vec::new();
+    let mut markets = Vec::new();
+
+    if let Some(adapter_items) = v.adapters.items {
+        for adapter in adapter_items {
+            match adapter {
+                get_vaults_v2_for_simulation::GetVaultsV2ForSimulationVaultV2sItemsAdaptersItems::MorphoMarketV1Adapter(a) => {
+                    if let Some(position_items) = a.positions.items {
+                        for pos in position_items {
+                            let market_id = B256::from_str(&pos.market.unique_key).ok()?;
+
+                            allocations.push(VaultAllocationForSim {
+                                market_id,
+                                supply_assets: parse_bigint(&pos.supply_assets)?,
+                                supply_cap: U256::MAX, // V2 adapters don't have per-market caps
+                                enabled: true,
+                                supply_queue_index: None,
+                                withdraw_queue_index: None,
+                            });
+
+                            if let Some(ref market_state) = pos.market.state {
+                                let lltv = parse_bigint(&pos.market.lltv)?;
+                                let timestamp: u64 = market_state.timestamp.0.parse().ok()?;
+                                markets.push(MarketStateForSim {
+                                    id: market_id,
+                                    total_supply_assets: parse_bigint(&market_state.supply_assets)?,
+                                    total_borrow_assets: parse_bigint(&market_state.borrow_assets)?,
+                                    total_supply_shares: parse_bigint(&market_state.supply_shares)?,
+                                    total_borrow_shares: parse_bigint(&market_state.borrow_shares)?,
+                                    last_update: timestamp,
+                                    fee: fee_to_wad(market_state.fee),
+                                    rate_at_target: market_state.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
+                                    price: market_state.price.as_ref().and_then(|p| parse_bigint(p)),
+                                    lltv,
+                                });
+                            }
+                        }
+                    }
+                }
+                get_vaults_v2_for_simulation::GetVaultsV2ForSimulationVaultV2sItemsAdaptersItems::MetaMorphoAdapter(a) => {
+                    if let Some(ref state) = a.meta_morpho.state {
+                        for alloc in &state.allocation {
+                            let market_id = B256::from_str(&alloc.market.unique_key).ok()?;
+
+                            allocations.push(VaultAllocationForSim {
+                                market_id,
+                                supply_assets: parse_bigint(&alloc.supply_assets)?,
+                                supply_cap: parse_bigint(&alloc.supply_cap)?,
+                                enabled: alloc.enabled,
+                                supply_queue_index: alloc.supply_queue_index.map(|i| i as i32),
+                                withdraw_queue_index: alloc.withdraw_queue_index.map(|i| i as i32),
+                            });
+
+                            if let Some(ref market_state) = alloc.market.state {
+                                let lltv = parse_bigint(&alloc.market.lltv)?;
+                                let timestamp: u64 = market_state.timestamp.0.parse().ok()?;
+                                markets.push(MarketStateForSim {
+                                    id: market_id,
+                                    total_supply_assets: parse_bigint(&market_state.supply_assets)?,
+                                    total_borrow_assets: parse_bigint(&market_state.borrow_assets)?,
+                                    total_supply_shares: parse_bigint(&market_state.supply_shares)?,
+                                    total_borrow_shares: parse_bigint(&market_state.borrow_shares)?,
+                                    last_update: timestamp,
+                                    fee: fee_to_wad(market_state.fee),
+                                    rate_at_target: market_state.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
+                                    price: market_state.price.as_ref().and_then(|p| parse_bigint(p)),
+                                    lltv,
+                                });
+                            }
+                        }
+                    }
+                }
+                _ => continue,
+            }
+        }
+    }
+
+    Some(VaultSimulationData {
+        address,
+        asset_decimals,
+        fee,
+        total_assets,
+        total_assets_usd: v.total_assets_usd,
+        total_supply,
+        allocations,
+        markets,
+    })
+}
+
+#[allow(unreachable_patterns)]
+fn convert_vault_v2_for_simulation_single(
+    v: get_vault_v2_for_simulation::GetVaultV2ForSimulationVaultV2ByAddress,
+) -> Option<VaultSimulationData> {
+    let address = Address::from_str(&v.address).ok()?;
+    let asset_decimals = v.asset.decimals as u8;
+
+    let fee = fee_to_wad(v.performance_fee);
+    let total_assets = v.total_assets.as_ref().and_then(|s| parse_bigint(s))?;
+    let total_supply = parse_bigint(&v.total_supply)?;
+
+    let mut allocations = Vec::new();
+    let mut markets = Vec::new();
+
+    if let Some(adapter_items) = v.adapters.items {
+        for adapter in adapter_items {
+            match adapter {
+                get_vault_v2_for_simulation::GetVaultV2ForSimulationVaultV2ByAddressAdaptersItems::MorphoMarketV1Adapter(a) => {
+                    if let Some(position_items) = a.positions.items {
+                        for pos in position_items {
+                            let market_id = B256::from_str(&pos.market.unique_key).ok()?;
+
+                            allocations.push(VaultAllocationForSim {
+                                market_id,
+                                supply_assets: parse_bigint(&pos.supply_assets)?,
+                                supply_cap: U256::MAX, // V2 adapters don't have per-market caps
+                                enabled: true,
+                                supply_queue_index: None,
+                                withdraw_queue_index: None,
+                            });
+
+                            if let Some(ref market_state) = pos.market.state {
+                                let lltv = parse_bigint(&pos.market.lltv)?;
+                                let timestamp: u64 = market_state.timestamp.0.parse().ok()?;
+                                markets.push(MarketStateForSim {
+                                    id: market_id,
+                                    total_supply_assets: parse_bigint(&market_state.supply_assets)?,
+                                    total_borrow_assets: parse_bigint(&market_state.borrow_assets)?,
+                                    total_supply_shares: parse_bigint(&market_state.supply_shares)?,
+                                    total_borrow_shares: parse_bigint(&market_state.borrow_shares)?,
+                                    last_update: timestamp,
+                                    fee: fee_to_wad(market_state.fee),
+                                    rate_at_target: market_state.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
+                                    price: market_state.price.as_ref().and_then(|p| parse_bigint(p)),
+                                    lltv,
+                                });
+                            }
+                        }
+                    }
+                }
+                get_vault_v2_for_simulation::GetVaultV2ForSimulationVaultV2ByAddressAdaptersItems::MetaMorphoAdapter(a) => {
+                    if let Some(ref state) = a.meta_morpho.state {
+                        for alloc in &state.allocation {
+                            let market_id = B256::from_str(&alloc.market.unique_key).ok()?;
+
+                            allocations.push(VaultAllocationForSim {
+                                market_id,
+                                supply_assets: parse_bigint(&alloc.supply_assets)?,
+                                supply_cap: parse_bigint(&alloc.supply_cap)?,
+                                enabled: alloc.enabled,
+                                supply_queue_index: alloc.supply_queue_index.map(|i| i as i32),
+                                withdraw_queue_index: alloc.withdraw_queue_index.map(|i| i as i32),
+                            });
+
+                            if let Some(ref market_state) = alloc.market.state {
+                                let lltv = parse_bigint(&alloc.market.lltv)?;
+                                let timestamp: u64 = market_state.timestamp.0.parse().ok()?;
+                                markets.push(MarketStateForSim {
+                                    id: market_id,
+                                    total_supply_assets: parse_bigint(&market_state.supply_assets)?,
+                                    total_borrow_assets: parse_bigint(&market_state.borrow_assets)?,
+                                    total_supply_shares: parse_bigint(&market_state.supply_shares)?,
+                                    total_borrow_shares: parse_bigint(&market_state.borrow_shares)?,
+                                    last_update: timestamp,
+                                    fee: fee_to_wad(market_state.fee),
+                                    rate_at_target: market_state.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
+                                    price: market_state.price.as_ref().and_then(|p| parse_bigint(p)),
+                                    lltv,
+                                });
+                            }
+                        }
+                    }
+                }
+                _ => continue,
+            }
+        }
+    }
+
+    Some(VaultSimulationData {
+        address,
+        asset_decimals,
+        fee,
+        total_assets,
+        total_assets_usd: None, // Single vault query doesn't include totalAssetsUsd
         total_supply,
         allocations,
         markets,
