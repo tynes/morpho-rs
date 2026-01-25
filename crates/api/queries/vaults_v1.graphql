@@ -40,6 +40,7 @@ query GetVaultsV1(
         allocation {
           market {
             uniqueKey
+            lltv
             loanAsset {
               address
               symbol
@@ -48,10 +49,23 @@ query GetVaultsV1(
               address
               symbol
             }
+            state {
+              supplyAssets
+              borrowAssets
+              supplyShares
+              borrowShares
+              timestamp
+              fee
+              rateAtTarget
+              price
+            }
           }
           supplyAssets
           supplyAssetsUsd
           supplyCap
+          enabled
+          supplyQueueIndex
+          withdrawQueueIndex
         }
       }
       allocators {
@@ -104,6 +118,7 @@ query GetVaultV1ByAddress($address: String!, $chainId: Int!) {
       allocation {
         market {
           uniqueKey
+          lltv
           loanAsset {
             address
             symbol
@@ -112,10 +127,23 @@ query GetVaultV1ByAddress($address: String!, $chainId: Int!) {
             address
             symbol
           }
+          state {
+            supplyAssets
+            borrowAssets
+            supplyShares
+            borrowShares
+            timestamp
+            fee
+            rateAtTarget
+            price
+          }
         }
         supplyAssets
         supplyAssetsUsd
         supplyCap
+        enabled
+        supplyQueueIndex
+        withdrawQueueIndex
       }
     }
     allocators {

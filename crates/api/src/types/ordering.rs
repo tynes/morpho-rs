@@ -1,16 +1,10 @@
 //! Ordering types for vault queries.
 
-use crate::queries::simulation::get_vaults_for_simulation::{
-    OrderDirection as OrderDirectionSim, VaultOrderBy as VaultOrderBySimGql,
-};
 use crate::queries::v1::get_vaults_v1::{
     OrderDirection as OrderDirectionV1, VaultOrderBy as VaultOrderByV1Gql,
 };
 use crate::queries::v2::get_vaults_v2::{
     OrderDirection as OrderDirectionV2, VaultV2OrderBy as VaultV2OrderByGql,
-};
-use crate::queries::v2_simulation::get_vaults_v2_for_simulation::{
-    OrderDirection as OrderDirectionSimV2, VaultV2OrderBy as VaultV2OrderBySimGql,
 };
 
 /// Order direction for queries.
@@ -37,22 +31,6 @@ impl OrderDirection {
         match self {
             OrderDirection::Asc => OrderDirectionV2::Asc,
             OrderDirection::Desc => OrderDirectionV2::Desc,
-        }
-    }
-
-    /// Convert to simulation GraphQL order direction.
-    pub(crate) fn to_gql_sim(self) -> OrderDirectionSim {
-        match self {
-            OrderDirection::Asc => OrderDirectionSim::Asc,
-            OrderDirection::Desc => OrderDirectionSim::Desc,
-        }
-    }
-
-    /// Convert to V2 simulation GraphQL order direction.
-    pub(crate) fn to_gql_sim_v2(self) -> OrderDirectionSimV2 {
-        match self {
-            OrderDirection::Asc => OrderDirectionSimV2::Asc,
-            OrderDirection::Desc => OrderDirectionSimV2::Desc,
         }
     }
 }
@@ -111,26 +89,6 @@ impl VaultOrderByV1 {
             VaultOrderByV1::CredoraRiskScore => VaultOrderByV1Gql::CredoraRiskScore,
         }
     }
-
-    /// Convert to simulation GraphQL order by type.
-    pub(crate) fn to_gql_sim(self) -> VaultOrderBySimGql {
-        match self {
-            VaultOrderByV1::Address => VaultOrderBySimGql::Address,
-            VaultOrderByV1::TotalAssets => VaultOrderBySimGql::TotalAssets,
-            VaultOrderByV1::TotalAssetsUsd => VaultOrderBySimGql::TotalAssetsUsd,
-            VaultOrderByV1::TotalSupply => VaultOrderBySimGql::TotalSupply,
-            VaultOrderByV1::Fee => VaultOrderBySimGql::Fee,
-            VaultOrderByV1::Apy => VaultOrderBySimGql::Apy,
-            VaultOrderByV1::NetApy => VaultOrderBySimGql::NetApy,
-            VaultOrderByV1::Name => VaultOrderBySimGql::Name,
-            VaultOrderByV1::Curator => VaultOrderBySimGql::Curator,
-            VaultOrderByV1::AvgApy => VaultOrderBySimGql::AvgApy,
-            VaultOrderByV1::AvgNetApy => VaultOrderBySimGql::AvgNetApy,
-            VaultOrderByV1::DailyApy => VaultOrderBySimGql::DailyApy,
-            VaultOrderByV1::DailyNetApy => VaultOrderBySimGql::DailyNetApy,
-            VaultOrderByV1::CredoraRiskScore => VaultOrderBySimGql::CredoraRiskScore,
-        }
-    }
 }
 
 /// Order by options for V2 vaults.
@@ -179,24 +137,6 @@ impl VaultOrderByV2 {
             VaultOrderByV2::RealAssetsUsd => VaultV2OrderByGql::RealAssetsUsd,
             VaultOrderByV2::IdleAssets => VaultV2OrderByGql::IdleAssets,
             VaultOrderByV2::IdleAssetsUsd => VaultV2OrderByGql::IdleAssetsUsd,
-        }
-    }
-
-    /// Convert to V2 simulation GraphQL order by type.
-    pub(crate) fn to_gql_sim(self) -> VaultV2OrderBySimGql {
-        match self {
-            VaultOrderByV2::Address => VaultV2OrderBySimGql::Address,
-            VaultOrderByV2::TotalAssets => VaultV2OrderBySimGql::TotalAssets,
-            VaultOrderByV2::TotalAssetsUsd => VaultV2OrderBySimGql::TotalAssetsUsd,
-            VaultOrderByV2::TotalSupply => VaultV2OrderBySimGql::TotalSupply,
-            VaultOrderByV2::Liquidity => VaultV2OrderBySimGql::Liquidity,
-            VaultOrderByV2::LiquidityUsd => VaultV2OrderBySimGql::LiquidityUsd,
-            VaultOrderByV2::Apy => VaultV2OrderBySimGql::Apy,
-            VaultOrderByV2::NetApy => VaultV2OrderBySimGql::NetApy,
-            VaultOrderByV2::RealAssets => VaultV2OrderBySimGql::RealAssets,
-            VaultOrderByV2::RealAssetsUsd => VaultV2OrderBySimGql::RealAssetsUsd,
-            VaultOrderByV2::IdleAssets => VaultV2OrderBySimGql::IdleAssets,
-            VaultOrderByV2::IdleAssetsUsd => VaultV2OrderBySimGql::IdleAssetsUsd,
         }
     }
 }

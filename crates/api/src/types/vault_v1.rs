@@ -1,7 +1,7 @@
 //! V1 (MetaMorpho) vault types.
 
 use alloy_chains::NamedChain;
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{Address, B256, U256};
 use serde::{Deserialize, Serialize};
 
 use super::asset::Asset;
@@ -65,6 +65,31 @@ pub struct VaultStateV1 {
     pub allocation: Vec<VaultAllocation>,
 }
 
+/// Market state data needed for simulation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MarketStateV1 {
+    /// Market unique identifier (32-byte hash).
+    pub id: B256,
+    /// Total loan assets supplied to the market.
+    pub total_supply_assets: U256,
+    /// Total loan assets borrowed from the market.
+    pub total_borrow_assets: U256,
+    /// Total supply shares representing lender positions.
+    pub total_supply_shares: U256,
+    /// Total borrow shares representing borrower debt.
+    pub total_borrow_shares: U256,
+    /// Timestamp of last interest accrual.
+    pub last_update: u64,
+    /// Protocol fee (WAD-scaled, e.g., 0.1 WAD = 10%).
+    pub fee: U256,
+    /// Rate at target utilization for Adaptive Curve IRM (None for other IRMs).
+    pub rate_at_target: Option<U256>,
+    /// Oracle price (collateral/loan, scaled by 1e36). None if unavailable.
+    pub price: Option<U256>,
+    /// Liquidation LTV (WAD-scaled).
+    pub lltv: U256,
+}
+
 /// Vault allocation to a specific market.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VaultAllocation {
@@ -84,6 +109,14 @@ pub struct VaultAllocation {
     pub supply_assets_usd: Option<f64>,
     /// Supply cap.
     pub supply_cap: U256,
+    /// Whether this market is enabled for the vault.
+    pub enabled: bool,
+    /// Position in the supply queue (None if not in queue).
+    pub supply_queue_index: Option<i32>,
+    /// Position in the withdraw queue (None if not in queue).
+    pub withdraw_queue_index: Option<i32>,
+    /// Full market state for simulation.
+    pub market_state: Option<MarketStateV1>,
 }
 
 /// Vault allocator.
@@ -169,6 +202,7 @@ impl VaultStateV1 {
 
 impl VaultAllocation {
     /// Create a VaultAllocation from GraphQL response data.
+    #[allow(clippy::too_many_arguments)]
     pub fn from_gql(
         market_key: String,
         loan_asset_symbol: Option<String>,
@@ -178,6 +212,10 @@ impl VaultAllocation {
         supply_assets: &str,
         supply_assets_usd: Option<f64>,
         supply_cap: &str,
+        enabled: bool,
+        supply_queue_index: Option<i32>,
+        withdraw_queue_index: Option<i32>,
+        market_state: Option<MarketStateV1>,
     ) -> Option<Self> {
         Some(VaultAllocation {
             market_key,
@@ -188,6 +226,10 @@ impl VaultAllocation {
             supply_assets: parse_bigint(supply_assets)?,
             supply_assets_usd,
             supply_cap: parse_bigint(supply_cap)?,
+            enabled,
+            supply_queue_index,
+            withdraw_queue_index,
+            market_state,
         })
     }
 }
@@ -198,6 +240,116 @@ impl VaultAllocator {
         Some(VaultAllocator {
             address: parse_address(address)?,
         })
+    }
+}
+
+// Simulation conversion methods (only available with "sim" feature)
+#[cfg(feature = "sim")]
+mod sim_conversion {
+    use super::*;
+    use morpho_rs_sim::{Market, Vault, VaultMarketConfig, VaultSimulation};
+    use std::collections::HashMap;
+
+    impl VaultV1 {
+        /// Convert this vault to a VaultSimulation for APY and deposit/withdrawal calculations.
+        ///
+        /// Returns `None` if the vault has no state or if required market data is missing.
+        ///
+        /// # Example
+        ///
+        /// ```ignore
+        /// use morpho_rs_api::VaultV1;
+        ///
+        /// let vault: VaultV1 = /* fetch from API */;
+        /// if let Some(simulation) = vault.to_vault_simulation() {
+        ///     let apy = simulation.get_net_apy(timestamp)?;
+        ///     let (new_sim, shares) = simulation.simulate_deposit(amount, timestamp)?;
+        /// }
+        /// ```
+        pub fn to_vault_simulation(&self) -> Option<VaultSimulation> {
+            let state = self.state.as_ref()?;
+
+            // Build supply and withdraw queues by sorting allocations by queue index
+            let mut supply_queue_items: Vec<_> = state
+                .allocation
+                .iter()
+                .filter_map(|a| {
+                    let market_id = a.market_state.as_ref()?.id;
+                    a.supply_queue_index.map(|idx| (idx, market_id))
+                })
+                .collect();
+            supply_queue_items.sort_by_key(|(idx, _)| *idx);
+            let supply_queue: Vec<B256> = supply_queue_items.into_iter().map(|(_, id)| id).collect();
+
+            let mut withdraw_queue_items: Vec<_> = state
+                .allocation
+                .iter()
+                .filter_map(|a| {
+                    let market_id = a.market_state.as_ref()?.id;
+                    a.withdraw_queue_index.map(|idx| (idx, market_id))
+                })
+                .collect();
+            withdraw_queue_items.sort_by_key(|(idx, _)| *idx);
+            let withdraw_queue: Vec<B256> = withdraw_queue_items.into_iter().map(|(_, id)| id).collect();
+
+            // Build allocations HashMap
+            let mut allocations = HashMap::new();
+            for alloc in &state.allocation {
+                if let Some(market_state) = &alloc.market_state {
+                    let market_id = market_state.id;
+                    allocations.insert(
+                        market_id,
+                        VaultMarketConfig {
+                            market_id,
+                            cap: alloc.supply_cap,
+                            supply_assets: alloc.supply_assets,
+                            enabled: alloc.enabled,
+                            public_allocator_config: None, // Not available from API
+                        },
+                    );
+                }
+            }
+
+            // Build markets HashMap
+            let mut markets = HashMap::new();
+            for alloc in &state.allocation {
+                if let Some(ms) = &alloc.market_state {
+                    let market = Market::new_with_oracle(
+                        ms.id,
+                        ms.total_supply_assets,
+                        ms.total_borrow_assets,
+                        ms.total_supply_shares,
+                        ms.total_borrow_shares,
+                        ms.last_update,
+                        ms.fee,
+                        ms.rate_at_target,
+                        ms.price,
+                        ms.lltv,
+                    );
+                    markets.insert(ms.id, market);
+                }
+            }
+
+            // Convert fee from fraction to WAD-scaled
+            // API returns fee as fraction (0.1 = 10%), sim expects WAD (0.1 * 1e18)
+            let fee_wad = U256::from((state.fee * 1e18) as u128);
+
+            let vault = Vault {
+                address: self.address,
+                asset_decimals: self.asset.decimals,
+                fee: fee_wad,
+                total_assets: state.total_assets,
+                total_supply: state.total_supply,
+                last_total_assets: state.total_assets, // Assume current state is synced
+                supply_queue,
+                withdraw_queue,
+                allocations,
+                owner: state.owner.unwrap_or(Address::ZERO),
+                public_allocator_config: None, // Not available from API
+            };
+
+            Some(VaultSimulation::new(vault, markets))
+        }
     }
 }
 

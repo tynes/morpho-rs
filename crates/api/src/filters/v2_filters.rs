@@ -3,7 +3,6 @@
 use alloy_chains::NamedChain;
 
 use crate::queries::v2::get_vaults_v2::VaultV2sFilters;
-use crate::queries::v2_simulation::get_vaults_v2_for_simulation::VaultV2sFilters as SimVaultV2Filters;
 
 /// Builder for V2 vault query filters.
 #[derive(Debug, Clone, Default)]
@@ -104,38 +103,6 @@ impl VaultFiltersV2 {
     /// Convert to GraphQL filter input type.
     pub fn to_gql(&self) -> VaultV2sFilters {
         VaultV2sFilters {
-            chain_id_in: self.chain_ids.clone().map(|ids| ids.into_iter().map(|id| id as i64).collect()),
-            address_in: self.addresses.clone(),
-            listed: self.listed,
-            total_assets_usd_gte: self.total_assets_usd_gte,
-            total_assets_usd_lte: self.total_assets_usd_lte,
-            liquidity_usd_gte: self.liquidity_usd_gte,
-            liquidity_usd_lte: self.liquidity_usd_lte,
-            apy_gte: self.apy_gte,
-            apy_lte: self.apy_lte,
-            // Set other fields to None
-            total_assets_gte: None,
-            total_assets_lte: None,
-            total_supply_gte: None,
-            total_supply_lte: None,
-            liquidity_gte: None,
-            liquidity_lte: None,
-            net_apy_gte: None,
-            net_apy_lte: None,
-            real_assets_gte: None,
-            real_assets_lte: None,
-            real_assets_usd_gte: None,
-            real_assets_usd_lte: None,
-            idle_assets_gte: None,
-            idle_assets_lte: None,
-            idle_assets_usd_gte: None,
-            idle_assets_usd_lte: None,
-        }
-    }
-
-    /// Convert to GraphQL filter input type for simulation queries.
-    pub fn to_gql_sim(&self) -> SimVaultV2Filters {
-        SimVaultV2Filters {
             chain_id_in: self.chain_ids.clone().map(|ids| ids.into_iter().map(|id| id as i64).collect()),
             address_in: self.addresses.clone(),
             listed: self.listed,
