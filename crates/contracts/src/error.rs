@@ -1,6 +1,5 @@
 //! Error types for the contracts crate.
 
-use alloy_primitives::U256;
 use thiserror::Error;
 
 /// Errors that can occur when using contract clients.
@@ -13,10 +12,6 @@ pub enum ContractError {
     /// Transaction failed.
     #[error("Transaction failed: {0}")]
     TransactionFailed(String),
-
-    /// Insufficient balance.
-    #[error("Insufficient balance: have {have}, need {need}")]
-    InsufficientBalance { have: U256, need: U256 },
 
     /// Invalid private key.
     #[error("Invalid private key")]
@@ -43,18 +38,6 @@ mod tests {
     fn test_error_display_transaction_failed() {
         let error = ContractError::TransactionFailed("out of gas".to_string());
         assert_eq!(error.to_string(), "Transaction failed: out of gas");
-    }
-
-    #[test]
-    fn test_error_display_insufficient_balance() {
-        let error = ContractError::InsufficientBalance {
-            have: U256::from(100),
-            need: U256::from(200),
-        };
-        assert_eq!(
-            error.to_string(),
-            "Insufficient balance: have 100, need 200"
-        );
     }
 
     #[test]
