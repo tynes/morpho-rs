@@ -6,6 +6,10 @@ description = "Rust API library for querying Morpho V1 (MetaMorpho) and V2 vault
 license = "MIT"
 repository = "https://github.com/tynes/morpho-rs"
 
+[features]
+default = []
+sim = ["morpho-rs-sim"]
+
 [dependencies]
 graphql_client = { version = "0.14", features = ["reqwest"] }
 reqwest = { version = "0.12", features = ["json"] }
@@ -19,6 +23,7 @@ alloy-chains = { version = "0.2", features = ["serde"] }
 alloy = { version = "1.4", features = ["provider-http", "signer-local", "contract", "sol-types", "rpc-types"] }
 futures = "0.3"
 morpho-rs-contracts = { version = "0.4.0", path = "../contracts" }
+morpho-rs-sim = { path = "../sim", optional = true }
 
 [dev-dependencies]
 wiremock = "0.6"

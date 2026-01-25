@@ -1,0 +1,81 @@
+# Query to fetch vault data for simulation with all market state fields.
+query GetVaultForSimulation($address: String!, $chainId: Int!) {
+  vaultByAddress(address: $address, chainId: $chainId) {
+    address
+    asset {
+      decimals
+    }
+    state {
+      totalAssets
+      totalAssetsUsd
+      totalSupply
+      fee
+      allocation {
+        supplyAssets
+        supplyCap
+        enabled
+        supplyQueueIndex
+        withdrawQueueIndex
+        market {
+          uniqueKey
+          lltv
+          state {
+            supplyAssets
+            borrowAssets
+            supplyShares
+            borrowShares
+            timestamp
+            fee
+            rateAtTarget
+            price
+          }
+        }
+      }
+    }
+  }
+}
+
+# Query to fetch multiple vaults for simulation.
+query GetVaultsForSimulation(
+  $first: Int
+  $skip: Int
+  $where: VaultFilters
+  $orderBy: VaultOrderBy
+  $orderDirection: OrderDirection
+) {
+  vaults(first: $first, skip: $skip, where: $where, orderBy: $orderBy, orderDirection: $orderDirection) {
+    items {
+      address
+      asset {
+        decimals
+      }
+      state {
+        totalAssets
+        totalAssetsUsd
+        totalSupply
+        fee
+        allocation {
+          supplyAssets
+          supplyCap
+          enabled
+          supplyQueueIndex
+          withdrawQueueIndex
+          market {
+            uniqueKey
+            lltv
+            state {
+              supplyAssets
+              borrowAssets
+              supplyShares
+              borrowShares
+              timestamp
+              fee
+              rateAtTarget
+              price
+            }
+          }
+        }
+      }
+    }
+  }
+}

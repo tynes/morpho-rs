@@ -49,9 +49,10 @@ pub use error::{ApiError, Result};
 pub use filters::{VaultFiltersV1, VaultFiltersV2, VaultQueryOptionsV1, VaultQueryOptionsV2};
 pub use morpho_rs_contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
 pub use types::{
-    chain_from_id, chain_serde, Asset, MarketInfo, NamedChain, OrderDirection, UserAccountOverview,
-    UserMarketPosition, UserState, UserVaultPositions, UserVaultV1Position, UserVaultV2Position,
-    Vault, VaultAdapter, VaultAllocation, VaultAllocator, VaultInfo, VaultOrderByV1,
-    VaultOrderByV2, VaultPositionState, VaultReward, VaultStateV1, VaultV1, VaultV2,
-    VaultV2Warning, VaultVersion, VaultWarning, SUPPORTED_CHAINS,
+    chain_from_id, chain_serde, Asset, MarketInfo, MarketStateForSim, NamedChain, OrderDirection,
+    UserAccountOverview, UserMarketPosition, UserState, UserVaultPositions, UserVaultV1Position,
+    UserVaultV2Position, Vault, VaultAdapter, VaultAllocation, VaultAllocationForSim,
+    VaultAllocator, VaultInfo, VaultOrderByV1, VaultOrderByV2, VaultPositionState, VaultReward,
+    VaultSimulationData, VaultStateV1, VaultV1, VaultV2, VaultV2Warning, VaultVersion,
+    VaultWarning, SUPPORTED_CHAINS,
 };

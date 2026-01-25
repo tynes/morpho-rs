@@ -2590,6 +2590,7 @@ dependencies = [
  "futures",
  "graphql_client",
  "morpho-rs-contracts",
+ "morpho-rs-sim",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
