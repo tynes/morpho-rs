@@ -1,40 +1,104 @@
-//! Morpho Vault Simulation SDK
+//! # Morpho Blue Simulation SDK
 //!
-//! This crate provides simulation capabilities for Morpho Blue markets and
-//! MetaMorpho vaults, including APY calculations and deposit impact analysis.
+//! A comprehensive simulation library for [Morpho Blue](https://morpho.org/) lending markets
+//! and [MetaMorpho](https://docs.morpho.org/metamorpho/overview) vaults.
 //!
-//! # Overview
+//! This crate enables offline APY calculations, position health tracking, vault deposit/withdrawal
+//! simulations, and yield optimization strategies without requiring on-chain transactions.
 //!
-//! The simulation SDK allows you to:
-//! - Calculate market-level supply and borrow APYs
-//! - Simulate vault deposits and withdrawals
-//! - Calculate the APY impact of operations
-//! - Find the deposit amount needed for a target APY change
-//! - Track and manage positions with health factor calculations
-//! - Simulate reallocations across markets
-//! - Find optimal allocations for yield maximization
+//! ## Features
 //!
-//! # Example
+//! - **Market Simulation**: Supply, borrow, withdraw, and repay operations with accurate interest accrual
+//! - **APY Calculations**: Calculate supply/borrow APYs using the Adaptive Curve IRM
+//! - **Vault Operations**: Simulate MetaMorpho vault deposits, withdrawals, and reallocations
+//! - **Position Tracking**: Monitor health factors, LTV, liquidation prices, and capacity limits
+//! - **Yield Optimization**: Find optimal market allocations and best vaults for deposits
+//! - **Public Allocator**: Simulate public reallocation with flow limits
 //!
-//! ```rust,ignore
-//! use morpho_rs_sim::{
-//!     vault::{Vault, VaultMarketConfig, VaultSimulation, vault_deposit_apy_impact},
-//!     market::Market,
-//! };
-//! use alloy_primitives::U256;
-//! use std::collections::HashMap;
+//! ## Quick Start
 //!
-//! // Create markets and vault configuration
-//! // ...
+//! ### Market APY Calculation
 //!
-//! // Calculate APY impact of a deposit
-//! let deposit_amount = U256::from(100_000) * morpho_rs_sim::math::WAD;
-//! let impact = vault_deposit_apy_impact(&simulation, deposit_amount, timestamp)?;
+//! ```rust
+//! use morpho_rs_sim::{Market, WAD};
+//! use alloy_primitives::{FixedBytes, U256};
 //!
-//! println!("APY before: {:.2}%", impact.apy_before * 100.0);
-//! println!("APY after: {:.2}%", impact.apy_after * 100.0);
-//! println!("APY change: {:.4}%", impact.apy_delta * 100.0);
+//! // Create a market with 80% utilization
+//! let market = Market::new(
+//!     FixedBytes::ZERO,                           // market ID
+//!     U256::from(1_000_000) * WAD,                // total supply: 1M
+//!     U256::from(800_000) * WAD,                  // total borrow: 800K
+//!     U256::from(1_000_000) * WAD,                // supply shares
+//!     U256::from(800_000) * WAD,                  // borrow shares
+//!     1704067200,                                 // last update timestamp
+//!     U256::from(100_000_000_000_000_000u64),     // 10% protocol fee
+//!     Some(U256::from(1_268_391_679u64)),         // rate at target (~4% APY)
+//! );
+//!
+//! let timestamp = 1704153600;
+//! let supply_apy = market.get_supply_apy(timestamp).unwrap();
+//! let borrow_apy = market.get_borrow_apy(timestamp).unwrap();
+//!
+//! assert!(supply_apy > 0.0);
+//! assert!(borrow_apy > supply_apy); // Borrow APY is always higher
 //! ```
+//!
+//! ### Simulating Operations
+//!
+//! ```rust
+//! use morpho_rs_sim::{supply_apy_impact, Market, WAD};
+//! use alloy_primitives::{FixedBytes, U256};
+//!
+//! let market = Market::new(
+//!     FixedBytes::ZERO,
+//!     U256::from(1_000_000) * WAD,
+//!     U256::from(800_000) * WAD,
+//!     U256::from(1_000_000) * WAD,
+//!     U256::from(800_000) * WAD,
+//!     1704067200,
+//!     U256::from(100_000_000_000_000_000u64),
+//!     Some(U256::from(1_268_391_679u64)),
+//! );
+//!
+//! let deposit = U256::from(100_000) * WAD;
+//! let impact = supply_apy_impact(&market, deposit, 1704067200).unwrap();
+//!
+//! // Supplying dilutes returns, so APY decreases
+//! assert!(impact.apy_delta < 0.0);
+//! assert!(impact.shares_received > U256::ZERO);
+//! ```
+//!
+//! ## Core Concepts
+//!
+//! ### WAD-Scaled Arithmetic
+//!
+//! All monetary values use fixed-point arithmetic with 18 decimal places:
+//!
+//! ```rust
+//! use morpho_rs_sim::WAD;
+//! use alloy_primitives::U256;
+//!
+//! let one_token = WAD;                      // 1.0
+//! let half_token = WAD / U256::from(2);     // 0.5
+//! let ten_percent = WAD / U256::from(10);   // 0.1 (10%)
+//! ```
+//!
+//! ### Adaptive Curve IRM
+//!
+//! The Interest Rate Model adjusts rates based on utilization:
+//! - **Target Utilization**: 90%
+//! - **Below Target**: Lower rates to encourage borrowing
+//! - **Above Target**: Higher rates to encourage supply and discourage borrowing
+//! - **Rate Adaptation**: The "rate at target" adjusts over time based on utilization history
+//!
+//! ## Modules
+//!
+//! - [`market`]: Market state and operations (supply, borrow, APY calculations)
+//! - [`vault`]: MetaMorpho vault simulation (deposits, withdrawals, reallocations)
+//! - [`position`]: Position tracking with health factor and liquidation metrics
+//! - [`irm`]: Adaptive Curve Interest Rate Model implementation
+//! - [`math`]: Fixed-point arithmetic utilities
+//! - [`error`]: Error types for simulation operations
 
 pub mod error;
 pub mod irm;

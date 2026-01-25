@@ -1,7 +1,60 @@
 //! Adaptive Curve Interest Rate Model (IRM) implementation.
 //!
-//! This module implements the Adaptive Curve IRM used by Morpho Blue,
-//! which adjusts the rate at target utilization based on market conditions.
+//! This module implements the [Adaptive Curve IRM](https://docs.morpho.org/morpho/concepts/adaptive-interest-rate-model)
+//! used by Morpho Blue, which dynamically adjusts interest rates based on market utilization.
+//!
+//! # How the IRM Works
+//!
+//! The Adaptive Curve IRM has two key components:
+//!
+//! ## 1. The Curve Function
+//!
+//! The borrow rate is determined by a curve centered at the target utilization (90%):
+//!
+//! ```text
+//! If utilization >= target (90%):
+//!     rate = rate_at_target * (1 + 3 * error)    // Steep increase above target
+//! If utilization < target:
+//!     rate = rate_at_target * (1 - 0.75 * error) // Gradual decrease below target
+//!
+//! where error = |utilization - target| / normalization_factor
+//! ```
+//!
+//! This creates an asymmetric curve where rates increase much faster above target
+//! than they decrease below it.
+//!
+//! ## 2. Rate Adaptation
+//!
+//! The `rate_at_target` itself adapts over time:
+//! - **Above target utilization**: `rate_at_target` increases (encourages more supply)
+//! - **Below target utilization**: `rate_at_target` decreases (encourages more borrowing)
+//! - **Adaptation speed**: 50% per year (e.g., if above target for a full year, rate doubles)
+//!
+//! # Constants
+//!
+//! | Constant | Value | Description |
+//! |----------|-------|-------------|
+//! | `TARGET_UTILIZATION` | 90% | Optimal utilization rate |
+//! | `CURVE_STEEPNESS` | 4.0 | Rate multiplier at 100% utilization |
+//! | `INITIAL_RATE_AT_TARGET` | ~4% APY | Starting rate for new markets |
+//! | `ADJUSTMENT_SPEED` | 50%/year | How fast rate_at_target adapts |
+//! | `MIN_RATE_AT_TARGET` | 0.1% APY | Minimum rate at target |
+//! | `MAX_RATE_AT_TARGET` | 200% APY | Maximum rate at target |
+//!
+//! # Example
+//!
+//! ```rust
+//! use morpho_rs_sim::irm::{get_borrow_rate, TARGET_UTILIZATION, INITIAL_RATE_AT_TARGET};
+//! use morpho_rs_sim::{WAD, math::rate_to_apy};
+//! use alloy_primitives::U256;
+//!
+//! // Calculate rate at exactly target utilization
+//! let result = get_borrow_rate(TARGET_UTILIZATION, INITIAL_RATE_AT_TARGET, 0);
+//!
+//! // At target, borrow rate equals rate_at_target
+//! let apy = rate_to_apy(result.end_borrow_rate);
+//! assert!(apy > 0.03 && apy < 0.05); // Around 4% APY
+//! ```
 
 use alloy_primitives::U256;
 
@@ -96,15 +149,54 @@ pub fn w_exp(x: i128) -> U256 {
     }
 }
 
-/// Calculate the borrow rate for the Adaptive Curve IRM.
+/// Calculates the borrow rate for the Adaptive Curve IRM.
+///
+/// This is the core IRM function that computes both the instantaneous borrow rate
+/// and the adapted `rate_at_target` after a given time period.
+///
+/// # Rate Calculation
+///
+/// The function performs these steps:
+/// 1. Calculate utilization error from target (90%)
+/// 2. Compute `rate_at_target` adaptation based on error and elapsed time
+/// 3. Apply the curve function to get the final borrow rate
 ///
 /// # Arguments
-/// * `utilization` - Current utilization rate (WAD-scaled)
-/// * `rate_at_target` - Current rate at target utilization (WAD-scaled per second)
-/// * `elapsed` - Time elapsed since last update (seconds)
+///
+/// * `utilization` - Current market utilization (WAD-scaled, 0 to 1e18)
+/// * `rate_at_target` - Current rate at target utilization (per-second, WAD-scaled).
+///   Pass `U256::ZERO` for first interaction (will use `INITIAL_RATE_AT_TARGET`).
+/// * `elapsed` - Time since last update in seconds
 ///
 /// # Returns
-/// The average and end borrow rates, and the new rate at target
+///
+/// A [`BorrowRateResult`] containing:
+/// - `avg_borrow_rate`: Average borrow rate over the elapsed period (for interest accrual)
+/// - `end_borrow_rate`: Instantaneous rate at the end (current rate)
+/// - `end_rate_at_target`: Updated rate at target after adaptation
+///
+/// # Example
+///
+/// ```rust
+/// use morpho_rs_sim::irm::{get_borrow_rate, TARGET_UTILIZATION, INITIAL_RATE_AT_TARGET};
+/// use morpho_rs_sim::{WAD, math::rate_to_apy};
+/// use alloy_primitives::U256;
+///
+/// // High utilization (95%) should give higher rate
+/// let high_util = U256::from(950_000_000_000_000_000u64);
+/// let result = get_borrow_rate(high_util, INITIAL_RATE_AT_TARGET, 0);
+/// assert!(result.end_borrow_rate > INITIAL_RATE_AT_TARGET);
+///
+/// // Low utilization (50%) should give lower rate
+/// let low_util = U256::from(500_000_000_000_000_000u64);
+/// let result_low = get_borrow_rate(low_util, INITIAL_RATE_AT_TARGET, 0);
+/// assert!(result_low.end_borrow_rate < INITIAL_RATE_AT_TARGET);
+///
+/// // After 1 day at high utilization, rate_at_target increases
+/// let one_day = 86400u64;
+/// let adapted = get_borrow_rate(high_util, INITIAL_RATE_AT_TARGET, one_day);
+/// assert!(adapted.end_rate_at_target > INITIAL_RATE_AT_TARGET);
+/// ```
 pub fn get_borrow_rate(utilization: U256, rate_at_target: U256, elapsed: u64) -> BorrowRateResult {
     let elapsed_u256 = U256::from(elapsed);
 

@@ -1,4 +1,61 @@
 //! Error types for the simulation library.
+//!
+//! This module defines the [`SimError`] enum which covers all error conditions
+//! that can occur during market, vault, and position simulations.
+//!
+//! # Error Categories
+//!
+//! ## Interest Accrual Errors
+//! - [`SimError::InvalidInterestAccrual`]: Timestamp is before last update
+//!
+//! ## Capacity Errors
+//! - [`SimError::AllCapsReached`]: Vault deposit exceeds market caps
+//! - [`SimError::NotEnoughLiquidity`]: Insufficient liquidity for withdrawal
+//! - [`SimError::InsufficientMarketLiquidity`]: Market lacks liquidity for borrow/withdraw
+//! - [`SimError::SupplyCapExceeded`]: Reallocation exceeds market cap
+//!
+//! ## Position Errors
+//! - [`SimError::InsufficientPosition`]: Trying to withdraw more than owned
+//! - [`SimError::InsufficientCollateral`]: Borrow would make position unhealthy
+//! - [`SimError::UnknownOraclePrice`]: No oracle price for health calculations
+//!
+//! ## Vault Errors
+//! - [`SimError::MarketNotFound`]: Market not in vault allocations
+//! - [`SimError::MarketNotEnabled`]: Market disabled for operations
+//! - [`SimError::InconsistentReallocation`]: Supply/withdraw mismatch in reallocation
+//!
+//! ## Public Allocator Errors
+//! - [`SimError::PublicAllocatorNotConfigured`]: Vault has no public allocator
+//! - [`SimError::MaxInflowExceeded`]: Exceeds market's max_in limit
+//! - [`SimError::MaxOutflowExceeded`]: Exceeds market's max_out limit
+//!
+//! # Example
+//!
+//! ```rust
+//! use morpho_rs_sim::{Market, SimError, WAD};
+//! use alloy_primitives::{FixedBytes, U256};
+//!
+//! let market = Market::new(
+//!     FixedBytes::ZERO,
+//!     U256::from(1_000_000) * WAD,
+//!     U256::from(800_000) * WAD,
+//!     U256::from(1_000_000) * WAD,
+//!     U256::from(800_000) * WAD,
+//!     1000,
+//!     U256::ZERO,
+//!     None,
+//! );
+//!
+//! // Try to borrow more than liquidity
+//! let result = market.borrow(U256::from(300_000) * WAD, 1000);
+//!
+//! match result {
+//!     Err(SimError::InsufficientMarketLiquidity { market_id }) => {
+//!         println!("Market {:?} has insufficient liquidity", market_id);
+//!     }
+//!     _ => unreachable!(),
+//! }
+//! ```
 
 use alloy_primitives::{Address, FixedBytes};
 use thiserror::Error;

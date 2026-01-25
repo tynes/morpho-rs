@@ -2,6 +2,45 @@
 //!
 //! This module implements the math library used by Morpho Blue for
 //! fixed-point arithmetic with 18 decimal places (WAD = 10^18).
+//!
+//! # Overview
+//!
+//! Morpho Blue uses fixed-point arithmetic to avoid floating-point precision issues
+//! on the blockchain. All values are scaled by WAD (10^18):
+//!
+//! ```rust
+//! use morpho_rs_sim::WAD;
+//! use alloy_primitives::U256;
+//!
+//! // Representing values
+//! let one = WAD;                          // 1.0
+//! let half = WAD / U256::from(2);         // 0.5
+//! let ten_percent = WAD / U256::from(10); // 0.1
+//! let two_point_five = U256::from(25) * WAD / U256::from(10); // 2.5
+//! ```
+//!
+//! # Key Functions
+//!
+//! ## Multiplication and Division
+//!
+//! - [`w_mul_down`] / [`w_mul_up`]: Multiply two WAD values
+//! - [`w_div_down`] / [`w_div_up`]: Divide two WAD values
+//!
+//! ## Share Conversion
+//!
+//! - [`shares_to_assets`]: Convert shares to underlying assets
+//! - [`assets_to_shares`]: Convert assets to shares
+//!
+//! ## Interest Calculations
+//!
+//! - [`w_taylor_compounded`]: Taylor series for e^(rate * time) - 1
+//! - [`rate_to_apy`]: Convert per-second rate to APY
+//!
+//! # Rounding
+//!
+//! Most operations have `_down` and `_up` variants for explicit rounding control:
+//! - Use `_down` when calculating what users receive (conservative)
+//! - Use `_up` when calculating what users owe (protective for protocol)
 
 use alloy_primitives::U256;
 
@@ -159,9 +198,49 @@ pub fn w_taylor_compounded(x: U256, n: U256) -> U256 {
     first_term + second_term + third_term
 }
 
-/// Convert shares to assets using Morpho Blue's share math
+/// Converts shares to assets using Morpho Blue's share math.
 ///
-/// Includes virtual shares/assets to prevent share manipulation attacks
+/// This function computes the underlying asset value of a given number of shares,
+/// using virtual shares and assets to prevent share price manipulation attacks
+/// (similar to ERC4626 virtual shares).
+///
+/// # Formula
+///
+/// ```text
+/// assets = shares * (total_assets + VIRTUAL_ASSETS) / (total_shares + VIRTUAL_SHARES)
+/// ```
+///
+/// The virtual amounts ensure the first depositor cannot manipulate the share price
+/// by donating assets before the deposit.
+///
+/// # Arguments
+///
+/// * `shares` - Number of shares to convert
+/// * `total_assets` - Total assets in the pool
+/// * `total_shares` - Total shares outstanding
+/// * `rounding` - [`RoundingDirection::Down`] for user receives, [`RoundingDirection::Up`] for user owes
+///
+/// # Returns
+///
+/// The asset value of the shares
+///
+/// # Example
+///
+/// ```rust
+/// use morpho_rs_sim::math::{shares_to_assets, RoundingDirection};
+/// use morpho_rs_sim::WAD;
+/// use alloy_primitives::U256;
+///
+/// // With 2:1 asset:share ratio
+/// let shares = U256::from(1000) * WAD;
+/// let total_assets = U256::from(2000) * WAD;
+/// let total_shares = U256::from(1000) * WAD;
+///
+/// let assets = shares_to_assets(shares, total_assets, total_shares, RoundingDirection::Down);
+///
+/// // 1000 shares ≈ 2000 assets (slight difference due to virtual amounts)
+/// assert!(assets > U256::from(1990) * WAD);
+/// ```
 pub fn shares_to_assets(
     shares: U256,
     total_assets: U256,
@@ -193,9 +272,42 @@ pub fn assets_to_shares(
     )
 }
 
-/// Convert a per-second rate to an Annual Percentage Yield (APY)
+/// Converts a per-second rate to an Annual Percentage Yield (APY).
 ///
-/// Uses the formula: APY = e^(rate * seconds_per_year) - 1
+/// This function computes the effective annual return with continuous compounding,
+/// converting from Morpho Blue's per-second rate format to a human-readable percentage.
+///
+/// # Formula
+///
+/// ```text
+/// APY = e^(rate_per_second * seconds_per_year) - 1
+/// ```
+///
+/// # Arguments
+///
+/// * `rate` - Per-second interest rate (WAD-scaled)
+///
+/// # Returns
+///
+/// APY as a decimal (e.g., 0.05 = 5% APY)
+///
+/// # Example
+///
+/// ```rust
+/// use morpho_rs_sim::math::rate_to_apy;
+/// use morpho_rs_sim::{WAD, SECONDS_PER_YEAR};
+/// use alloy_primitives::U256;
+///
+/// // ~4% per-second rate (typical Morpho rate at target)
+/// let rate = U256::from(1_268_391_679u64);
+/// let apy = rate_to_apy(rate);
+///
+/// println!("APY: {:.2}%", apy * 100.0); // ~4.08%
+/// assert!(apy > 0.04 && apy < 0.045);
+///
+/// // 0% rate gives 0% APY
+/// assert_eq!(rate_to_apy(U256::ZERO), 0.0);
+/// ```
 pub fn rate_to_apy(rate: U256) -> f64 {
     // Convert to f64 for exponential calculation
     let rate_f64 = rate_to_f64(rate);

@@ -1,7 +1,58 @@
 //! Position tracking for Morpho Blue markets.
 //!
-//! This module implements position tracking with computed properties
-//! like health factor, LTV, liquidation price, and capacity limits.
+//! This module implements position tracking with computed properties like health factor,
+//! LTV (Loan-to-Value), liquidation price, and capacity limits for user positions
+//! in Morpho Blue markets.
+//!
+//! # Overview
+//!
+//! A position represents a user's state in a single market:
+//! - **Supply shares**: Lending position earning interest
+//! - **Borrow shares**: Debt position paying interest
+//! - **Collateral**: Assets backing the borrow position
+//!
+//! # Health & Liquidation
+//!
+//! Positions are monitored for health:
+//! - **Health Factor**: `max_borrow_capacity / current_debt` (> 1 = healthy)
+//! - **LTV**: `debt_value / collateral_value` (must stay below LLTV)
+//! - **Liquidation**: When health factor < 1, position can be liquidated
+//!
+//! # Example
+//!
+//! ```rust
+//! use morpho_rs_sim::{Position, Market, ORACLE_PRICE_SCALE, WAD};
+//! use alloy_primitives::{Address, FixedBytes, U256};
+//!
+//! // Create market with oracle
+//! let market = Market::new_with_oracle(
+//!     FixedBytes::ZERO,
+//!     U256::from(1_000_000) * WAD,
+//!     U256::from(800_000) * WAD,
+//!     U256::from(1_000_000) * WAD,
+//!     U256::from(800_000) * WAD,
+//!     1000,
+//!     U256::from(100_000_000_000_000_000u64),
+//!     Some(U256::from(1_268_391_679u64)),
+//!     Some(ORACLE_PRICE_SCALE),  // 1:1 price
+//!     U256::from(800_000_000_000_000_000u64),  // 80% LLTV
+//! );
+//!
+//! // Create position with collateral and borrow
+//! let position = Position::new(
+//!     Address::ZERO,
+//!     FixedBytes::ZERO,
+//!     U256::ZERO,                // no supply shares
+//!     U256::from(500) * WAD,     // 500 borrow shares
+//!     U256::from(1000) * WAD,    // 1000 collateral
+//! );
+//!
+//! // Check health
+//! let is_healthy = position.is_healthy(&market).unwrap();
+//! let health_factor = position.health_factor(&market).unwrap();
+//!
+//! assert!(is_healthy);
+//! ```
 
 use alloy_primitives::{Address, U256};
 
@@ -90,7 +141,59 @@ impl Position {
         self.is_healthy(market).map(|healthy| !healthy)
     }
 
-    /// Returns the health factor (WAD-scaled)
+    /// Returns the health factor of the position (WAD-scaled).
+    ///
+    /// Health factor measures how close a position is to liquidation:
+    /// - **> 1 WAD**: Position is healthy (the higher, the safer)
+    /// - **= 1 WAD**: Position is at the liquidation threshold
+    /// - **< 1 WAD**: Position can be liquidated
+    /// - **U256::MAX**: No debt (infinitely healthy)
+    ///
+    /// # Formula
+    ///
+    /// ```text
+    /// health_factor = max_borrow_capacity / current_borrow
+    ///               = (collateral_value * LLTV) / borrow_value
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// - `Some(U256)`: Health factor in WAD (e.g., 1.5 WAD = 150%)
+    /// - `None`: Market has no oracle price configured
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use morpho_rs_sim::{Position, Market, ORACLE_PRICE_SCALE, WAD, math::rate_to_f64};
+    /// use alloy_primitives::{Address, FixedBytes, U256};
+    ///
+    /// let market = Market::new_with_oracle(
+    ///     FixedBytes::ZERO,
+    ///     U256::from(1_000_000) * WAD,
+    ///     U256::from(800_000) * WAD,
+    ///     U256::from(1_000_000) * WAD,
+    ///     U256::from(800_000) * WAD,
+    ///     1000,
+    ///     U256::from(100_000_000_000_000_000u64),
+    ///     Some(U256::from(1_268_391_679u64)),
+    ///     Some(ORACLE_PRICE_SCALE),
+    ///     U256::from(800_000_000_000_000_000u64),  // 80% LLTV
+    /// );
+    ///
+    /// let position = Position::new(
+    ///     Address::ZERO,
+    ///     FixedBytes::ZERO,
+    ///     U256::ZERO,
+    ///     U256::from(500) * WAD,   // 500 debt
+    ///     U256::from(1000) * WAD,  // 1000 collateral
+    /// );
+    ///
+    /// // With 80% LLTV: max_borrow = 800, current = 500
+    /// // Health factor = 800/500 = 1.6
+    /// let hf = position.health_factor(&market).unwrap();
+    /// let hf_f64 = rate_to_f64(hf);
+    /// assert!(hf_f64 > 1.5 && hf_f64 < 1.7);
+    /// ```
     pub fn health_factor(&self, market: &Market) -> Option<U256> {
         market.get_health_factor(self.collateral, self.borrow_shares)
     }
@@ -332,7 +435,73 @@ pub struct PositionCapacities {
 }
 
 impl Position {
-    /// Get all capacity limits for this position
+    /// Gets all capacity limits for this position.
+    ///
+    /// Returns the maximum amount for each operation type (supply, withdraw, borrow,
+    /// repay, supply collateral, withdraw collateral) along with the limiting factor.
+    ///
+    /// # Capacity Limits
+    ///
+    /// Each operation has a maximum determined by different factors:
+    ///
+    /// | Operation | Limiting Factors |
+    /// |-----------|-----------------|
+    /// | Supply | User's loan token balance |
+    /// | Withdraw | Position size or market liquidity |
+    /// | Borrow | Collateral/health factor or market liquidity |
+    /// | Repay | User's balance or debt size |
+    /// | Supply Collateral | User's collateral token balance |
+    /// | Withdraw Collateral | Health factor requirements |
+    ///
+    /// # Arguments
+    ///
+    /// * `market` - The market this position is in
+    /// * `loan_balance` - User's balance of the loan asset
+    /// * `collateral_balance` - User's balance of the collateral asset
+    ///
+    /// # Returns
+    ///
+    /// A [`PositionCapacities`] struct with limits for all operations.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use morpho_rs_sim::{Position, Market, ORACLE_PRICE_SCALE, WAD, CapacityLimitReason};
+    /// use alloy_primitives::{Address, FixedBytes, U256};
+    ///
+    /// let market = Market::new_with_oracle(
+    ///     FixedBytes::ZERO,
+    ///     U256::from(1_000_000) * WAD,
+    ///     U256::from(800_000) * WAD,
+    ///     U256::from(1_000_000) * WAD,
+    ///     U256::from(800_000) * WAD,
+    ///     1000,
+    ///     U256::from(100_000_000_000_000_000u64),
+    ///     Some(U256::from(1_268_391_679u64)),
+    ///     Some(ORACLE_PRICE_SCALE),
+    ///     U256::from(800_000_000_000_000_000u64),
+    /// );
+    ///
+    /// let position = Position::new(
+    ///     Address::ZERO,
+    ///     FixedBytes::ZERO,
+    ///     U256::from(1000) * WAD,
+    ///     U256::from(500) * WAD,
+    ///     U256::from(1000) * WAD,
+    /// );
+    ///
+    /// let caps = position.get_capacities(
+    ///     &market,
+    ///     U256::from(10000) * WAD,  // loan balance
+    ///     U256::from(5000) * WAD,   // collateral balance
+    /// );
+    ///
+    /// // Supply limited by balance
+    /// assert_eq!(caps.supply.reason, CapacityLimitReason::Balance);
+    ///
+    /// // Borrow limited by collateral/health
+    /// assert!(caps.borrow.value > U256::ZERO);
+    /// ```
     pub fn get_capacities(
         &self,
         market: &Market,

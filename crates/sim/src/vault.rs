@@ -1,7 +1,37 @@
 //! Vault simulation for MetaMorpho vaults.
 //!
 //! This module implements vault-level deposit/withdraw simulation and APY calculations
-//! for MetaMorpho vaults, which distribute assets across multiple markets.
+//! for [MetaMorpho](https://docs.morpho.org/metamorpho/overview) vaults, which distribute
+//! assets across multiple Morpho Blue markets.
+//!
+//! # Overview
+//!
+//! MetaMorpho vaults are ERC4626-compliant yield aggregators that:
+//! - **Diversify across markets**: Spread deposits across multiple lending markets
+//! - **Manage risk**: Set supply caps per market to limit concentration
+//! - **Optimize yield**: Allocators can rebalance to maximize returns
+//! - **Charge fees**: Performance fees taken from accrued interest
+//!
+//! # Key Concepts
+//!
+//! - **Supply Queue**: Ordered list of markets for depositing (deposits fill first market first)
+//! - **Withdraw Queue**: Ordered list for withdrawals (withdraws from first market first)
+//! - **Supply Caps**: Maximum amount the vault can supply to each market
+//! - **Public Allocator**: Permissionless reallocation with flow limits
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use morpho_rs_sim::{Vault, VaultSimulation, vault_deposit_apy_impact, WAD};
+//!
+//! // Create vault simulation with markets
+//! let simulation = VaultSimulation::new(vault, markets);
+//!
+//! // Analyze deposit impact
+//! let impact = vault_deposit_apy_impact(&simulation, deposit_amount, timestamp)?;
+//!
+//! println!("Net APY: {:.2}% -> {:.2}%", impact.apy_before * 100.0, impact.apy_after * 100.0);
+//! ```
 
 use std::collections::HashMap;
 
@@ -260,9 +290,48 @@ impl VaultSimulation {
         Ok(rate_to_apy(net_rate))
     }
 
-    /// Simulate a deposit to the vault
+    /// Simulates a deposit to the vault.
     ///
-    /// Returns the updated simulation state and the shares minted
+    /// This simulates the full deposit flow: accrue interest on all markets,
+    /// calculate vault shares to mint, then distribute the deposit across
+    /// markets according to the supply queue.
+    ///
+    /// # Deposit Distribution
+    ///
+    /// Assets are allocated to markets in supply queue order:
+    /// 1. For each market in `supply_queue`
+    /// 2. Calculate available room: `cap - current_supply`
+    /// 3. Supply `min(remaining_deposit, available_room)` to that market
+    /// 4. Continue until deposit is fully allocated
+    ///
+    /// If the deposit exceeds total available capacity across all markets,
+    /// an error is returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `amount` - Amount of underlying assets to deposit (WAD-scaled)
+    /// * `timestamp` - Current Unix timestamp
+    ///
+    /// # Returns
+    ///
+    /// A tuple of (new_simulation, shares_minted). The original simulation is unchanged.
+    ///
+    /// # Errors
+    ///
+    /// - [`SimError::AllCapsReached`] if deposit exceeds total market caps
+    /// - Interest accrual errors from underlying markets
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let (new_sim, shares) = simulation.simulate_deposit(
+    ///     U256::from(100_000) * WAD,
+    ///     timestamp
+    /// )?;
+    ///
+    /// println!("Shares received: {}", shares);
+    /// println!("New total assets: {}", new_sim.vault.total_assets);
+    /// ```
     pub fn simulate_deposit(
         &self,
         amount: U256,
@@ -678,7 +747,47 @@ pub struct VaultApyImpact {
     pub shares: U256,
 }
 
-/// Calculate the APY impact of a vault deposit
+/// Calculates the APY impact of a vault deposit.
+///
+/// This function simulates a deposit and compares the vault's net APY
+/// (after performance fees) before and after the operation.
+///
+/// # Why Vault APY Changes with Deposits
+///
+/// A deposit affects vault APY because:
+/// 1. **Market APY dilution**: Depositing to underlying markets reduces their APY
+/// 2. **Allocation changes**: Deposit may shift capital to different markets
+/// 3. **Weighted average effect**: The vault's APY is a weighted average of market APYs
+///
+/// # Arguments
+///
+/// * `simulation` - The vault simulation state
+/// * `amount` - Amount of assets to deposit (WAD-scaled)
+/// * `timestamp` - Current Unix timestamp
+///
+/// # Returns
+///
+/// A [`VaultApyImpact`] containing:
+/// - `apy_before`: Net APY before deposit (as decimal, e.g., 0.05 = 5%)
+/// - `apy_after`: Net APY after deposit
+/// - `apy_delta`: Change in APY (typically negative as supply dilutes returns)
+/// - `shares`: Vault shares that would be minted
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use morpho_rs_sim::vault_deposit_apy_impact;
+///
+/// let impact = vault_deposit_apy_impact(&simulation, deposit, timestamp)?;
+///
+/// println!("APY impact: {:.4}%", impact.apy_delta * 100.0);
+/// println!("Shares to receive: {}", impact.shares);
+///
+/// // Decide if the post-deposit APY is acceptable
+/// if impact.apy_after < 0.03 {
+///     println!("Warning: APY would drop below 3%");
+/// }
+/// ```
 pub fn vault_deposit_apy_impact(
     simulation: &VaultSimulation,
     amount: U256,
@@ -860,10 +969,65 @@ pub struct OptimalAllocation {
     pub expected_apy: f64,
 }
 
-/// Find optimal allocation across multiple markets
+/// Finds an optimal allocation across multiple markets.
 ///
-/// Given a set of markets and a total amount to allocate, finds the allocation
-/// that maximizes the weighted average APY while respecting constraints.
+/// Given a set of markets, a total amount to allocate, and per-market caps,
+/// this function uses a greedy algorithm to maximize yield. It allocates to
+/// the highest-APY market first, then the next highest, and so on.
+///
+/// # Algorithm
+///
+/// 1. Rank all markets by current supply APY (descending)
+/// 2. For each market in order:
+///    - Calculate allocable amount: `min(remaining, cap)`
+///    - Simulate supply to get expected post-allocation APY
+///    - Add allocation to result
+/// 3. Continue until amount is fully allocated or caps exhausted
+///
+/// # Limitations
+///
+/// The greedy approach is fast but may not find the global optimum when:
+/// - Large deposits significantly move APYs
+/// - Multiple markets have similar APYs but different sensitivities
+///
+/// For most practical cases, the greedy approach provides good results.
+///
+/// # Arguments
+///
+/// * `markets` - Slice of (market_id, market) tuples
+/// * `total_amount` - Total assets to allocate (WAD-scaled)
+/// * `caps` - Maximum allocation per market (missing = unlimited)
+/// * `timestamp` - Current Unix timestamp
+///
+/// # Returns
+///
+/// A vector of [`OptimalAllocation`] entries, each containing:
+/// - `market_id`: The market to allocate to
+/// - `amount`: Amount to allocate
+/// - `expected_apy`: APY after allocation
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use morpho_rs_sim::find_optimal_market_allocation;
+///
+/// let total = U256::from(1_000_000) * WAD;
+/// let allocations = find_optimal_market_allocation(
+///     &markets,
+///     total,
+///     &caps,
+///     timestamp
+/// )?;
+///
+/// for alloc in &allocations {
+///     println!(
+///         "Market {:?}: {} ({:.2}% APY)",
+///         alloc.market_id,
+///         alloc.amount,
+///         alloc.expected_apy * 100.0
+///     );
+/// }
+/// ```
 pub fn find_optimal_market_allocation(
     markets: &[(MarketId, &Market)],
     total_amount: U256,

@@ -1,7 +1,45 @@
 //! Market state and operations for Morpho Blue markets.
 //!
-//! This module implements the Market struct and related functions
-//! for simulating market state changes and calculating APYs.
+//! This module implements the core [`Market`] struct and functions for simulating
+//! market state changes, calculating APYs, and analyzing operation impacts.
+//!
+//! # Overview
+//!
+//! A Morpho Blue market is a lending pool with:
+//! - **Supply side**: Lenders deposit assets and earn interest
+//! - **Borrow side**: Borrowers take loans and pay interest
+//! - **Share-based accounting**: Positions are tracked via shares, not raw assets
+//! - **Adaptive interest rates**: Rates adjust based on utilization
+//!
+//! # Key Operations
+//!
+//! - [`Market::supply`] / [`Market::withdraw`] - Lender operations
+//! - [`Market::borrow`] / [`Market::repay`] - Borrower operations
+//! - [`Market::accrue_interest`] - Update market state with accrued interest
+//! - [`supply_apy_impact`] / [`borrow_apy_impact`] - Analyze APY changes
+//!
+//! # Example
+//!
+//! ```rust
+//! use morpho_rs_sim::{Market, supply_apy_impact, WAD};
+//! use alloy_primitives::{FixedBytes, U256};
+//!
+//! // Create a market
+//! let market = Market::new(
+//!     FixedBytes::ZERO,
+//!     U256::from(1_000_000) * WAD,  // 1M supply
+//!     U256::from(800_000) * WAD,    // 800K borrow (80% utilization)
+//!     U256::from(1_000_000) * WAD,
+//!     U256::from(800_000) * WAD,
+//!     1000,
+//!     U256::from(100_000_000_000_000_000u64), // 10% fee
+//!     Some(U256::from(1_268_391_679u64)),
+//! );
+//!
+//! // Simulate supply and check APY impact
+//! let impact = supply_apy_impact(&market, U256::from(100_000) * WAD, 1000).unwrap();
+//! assert!(impact.apy_delta < 0.0); // APY decreases with more supply
+//! ```
 
 use alloy_primitives::U256;
 
@@ -65,7 +103,43 @@ pub struct Market {
 }
 
 impl Market {
-    /// Create a new market with the given parameters
+    /// Creates a new market with the given parameters.
+    ///
+    /// This constructor creates a market without oracle price information,
+    /// suitable for markets that don't support collateralized borrowing
+    /// or when oracle data is not available.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique 32-byte market identifier (keccak256 hash of market params)
+    /// * `total_supply_assets` - Total assets supplied to the market (WAD-scaled)
+    /// * `total_borrow_assets` - Total assets borrowed from the market (WAD-scaled)
+    /// * `total_supply_shares` - Total supply shares representing lender positions
+    /// * `total_borrow_shares` - Total borrow shares representing borrower debt
+    /// * `last_update` - Unix timestamp when interest was last accrued
+    /// * `fee` - Protocol fee percentage (WAD-scaled, e.g., 0.1 WAD = 10%)
+    /// * `rate_at_target` - For Adaptive Curve IRM, the rate at 90% utilization.
+    ///   Pass `None` for markets using other IRMs (will have 0% APY).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use morpho_rs_sim::{Market, WAD};
+    /// use alloy_primitives::{FixedBytes, U256};
+    ///
+    /// let market = Market::new(
+    ///     FixedBytes::ZERO,
+    ///     U256::from(1_000_000) * WAD,  // 1M total supply
+    ///     U256::from(800_000) * WAD,    // 800K total borrow
+    ///     U256::from(1_000_000) * WAD,  // 1M supply shares
+    ///     U256::from(800_000) * WAD,    // 800K borrow shares
+    ///     1704067200,                    // last update timestamp
+    ///     U256::from(100_000_000_000_000_000u64), // 10% protocol fee
+    ///     Some(U256::from(1_268_391_679u64)),     // ~4% rate at target
+    /// );
+    ///
+    /// assert_eq!(market.liquidity(), U256::from(200_000) * WAD);
+    /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: MarketId,
@@ -210,9 +284,57 @@ impl Market {
         Ok(rate_to_apy(rate))
     }
 
-    /// Accrue interest on the market up to the given timestamp.
+    /// Accrues interest on the market up to the given timestamp.
     ///
-    /// Returns a new market with updated state.
+    /// This is the core function for advancing market state. Interest is calculated
+    /// using the Adaptive Curve IRM (if configured) and applied to both supply and
+    /// borrow totals. Protocol fees are minted as additional supply shares.
+    ///
+    /// # How Interest Accrual Works
+    ///
+    /// 1. Calculate elapsed time since `last_update`
+    /// 2. Compute average borrow rate over the period using IRM
+    /// 3. Calculate interest: `total_borrow * (e^(rate * time) - 1)`
+    /// 4. Add interest to both `total_supply_assets` and `total_borrow_assets`
+    /// 5. Mint fee shares to protocol: `fee_amount * shares / (total_assets - fee)`
+    /// 6. Update `rate_at_target` based on utilization deviation
+    ///
+    /// # Arguments
+    ///
+    /// * `timestamp` - Current Unix timestamp in seconds. Must be >= `last_update`.
+    ///
+    /// # Returns
+    ///
+    /// A new `Market` instance with updated state. The original market is unchanged.
+    ///
+    /// # Errors
+    ///
+    /// - [`SimError::InvalidInterestAccrual`] if `timestamp < last_update`
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use morpho_rs_sim::{Market, WAD};
+    /// use alloy_primitives::{FixedBytes, U256};
+    ///
+    /// let market = Market::new(
+    ///     FixedBytes::ZERO,
+    ///     U256::from(1_000_000) * WAD,
+    ///     U256::from(800_000) * WAD,
+    ///     U256::from(1_000_000) * WAD,
+    ///     U256::from(800_000) * WAD,
+    ///     1000,  // last update at timestamp 1000
+    ///     U256::from(100_000_000_000_000_000u64),
+    ///     Some(U256::from(1_268_391_679u64)),
+    /// );
+    ///
+    /// // Accrue 1 day of interest
+    /// let accrued = market.accrue_interest(1000 + 86400).unwrap();
+    ///
+    /// // Both supply and borrow increased by the same interest amount
+    /// assert!(accrued.total_supply_assets > market.total_supply_assets);
+    /// assert!(accrued.total_borrow_assets > market.total_borrow_assets);
+    /// ```
     pub fn accrue_interest(&self, timestamp: u64) -> Result<Market, SimError> {
         let rates = self.get_accrual_borrow_rates(timestamp)?;
 
@@ -239,9 +361,51 @@ impl Market {
         })
     }
 
-    /// Supply assets to the market
+    /// Supplies assets to the market as a lender.
     ///
-    /// Returns the updated market and the amount of shares minted
+    /// This simulates depositing assets into the market to earn interest.
+    /// The operation first accrues pending interest, then mints supply shares
+    /// proportional to the deposit amount.
+    ///
+    /// # Share Calculation
+    ///
+    /// Shares are calculated using virtual shares/assets to prevent manipulation:
+    /// ```text
+    /// shares = assets * (total_shares + VIRTUAL_SHARES) / (total_assets + VIRTUAL_ASSETS)
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `assets` - Amount of loan assets to supply (WAD-scaled)
+    /// * `timestamp` - Current Unix timestamp for interest accrual
+    ///
+    /// # Returns
+    ///
+    /// A tuple of (new_market, shares_minted). The original market is unchanged.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use morpho_rs_sim::{Market, WAD};
+    /// use alloy_primitives::{FixedBytes, U256};
+    ///
+    /// let market = Market::new(
+    ///     FixedBytes::ZERO,
+    ///     U256::from(1_000_000) * WAD,
+    ///     U256::from(800_000) * WAD,
+    ///     U256::from(1_000_000) * WAD,
+    ///     U256::from(800_000) * WAD,
+    ///     1000,
+    ///     U256::from(100_000_000_000_000_000u64),
+    ///     Some(U256::from(1_268_391_679u64)),
+    /// );
+    ///
+    /// let supply_amount = U256::from(100_000) * WAD;
+    /// let (new_market, shares) = market.supply(supply_amount, 1000).unwrap();
+    ///
+    /// assert!(shares > U256::ZERO);
+    /// assert_eq!(new_market.total_supply_assets, market.total_supply_assets + supply_amount);
+    /// ```
     pub fn supply(&self, assets: U256, timestamp: u64) -> Result<(Market, U256), SimError> {
         let mut market = self.accrue_interest(timestamp)?;
 
@@ -269,9 +433,54 @@ impl Market {
         Ok((market, shares))
     }
 
-    /// Borrow assets from the market
+    /// Borrows assets from the market.
     ///
-    /// Returns the updated market and the amount of shares minted
+    /// This simulates taking a loan from the market. The operation first accrues
+    /// pending interest, then mints borrow shares representing the debt.
+    ///
+    /// # Important Notes
+    ///
+    /// - This function only updates market state. For collateralized borrowing
+    ///   with health checks, use [`crate::position::Position::borrow`] instead.
+    /// - The market must have sufficient liquidity (`total_supply - total_borrow >= assets`)
+    ///
+    /// # Arguments
+    ///
+    /// * `assets` - Amount of loan assets to borrow (WAD-scaled)
+    /// * `timestamp` - Current Unix timestamp for interest accrual
+    ///
+    /// # Returns
+    ///
+    /// A tuple of (new_market, shares_minted). The original market is unchanged.
+    ///
+    /// # Errors
+    ///
+    /// - [`SimError::InsufficientMarketLiquidity`] if `assets > liquidity()`
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use morpho_rs_sim::{Market, WAD};
+    /// use alloy_primitives::{FixedBytes, U256};
+    ///
+    /// let market = Market::new(
+    ///     FixedBytes::ZERO,
+    ///     U256::from(1_000_000) * WAD,
+    ///     U256::from(800_000) * WAD,
+    ///     U256::from(1_000_000) * WAD,
+    ///     U256::from(800_000) * WAD,
+    ///     1000,
+    ///     U256::from(100_000_000_000_000_000u64),
+    ///     Some(U256::from(1_268_391_679u64)),
+    /// );
+    ///
+    /// // Borrow 100K (market has 200K liquidity)
+    /// let borrow_amount = U256::from(100_000) * WAD;
+    /// let (new_market, shares) = market.borrow(borrow_amount, 1000).unwrap();
+    ///
+    /// assert!(shares > U256::ZERO);
+    /// assert_eq!(new_market.total_borrow_assets, market.total_borrow_assets + borrow_amount);
+    /// ```
     pub fn borrow(&self, assets: U256, timestamp: u64) -> Result<(Market, U256), SimError> {
         let mut market = self.accrue_interest(timestamp)?;
 
@@ -651,7 +860,59 @@ pub struct BorrowApyImpact {
     pub shares_minted: U256,
 }
 
-/// Calculate the APY impact of supplying to a market
+/// Calculates the APY impact of supplying assets to a market.
+///
+/// This function simulates a supply operation and compares the APY before and after,
+/// allowing you to understand how a deposit will affect market returns.
+///
+/// # Why APY Changes
+///
+/// When you supply to a market:
+/// - **Utilization decreases**: More supply relative to borrow
+/// - **Borrow rate decreases**: Lower utilization = lower rates on the IRM curve
+/// - **Supply APY decreases**: Interest is spread across more suppliers
+///
+/// The magnitude of the change depends on the deposit size relative to market size.
+///
+/// # Arguments
+///
+/// * `market` - The market to analyze
+/// * `amount` - Amount of assets to supply (WAD-scaled)
+/// * `timestamp` - Current Unix timestamp
+///
+/// # Returns
+///
+/// A [`SupplyApyImpact`] containing:
+/// - `apy_before`: APY before the supply (as decimal, e.g., 0.05 = 5%)
+/// - `apy_after`: APY after the supply
+/// - `apy_delta`: Change in APY (typically negative for supplies)
+/// - `shares_received`: Supply shares that would be minted
+///
+/// # Example
+///
+/// ```rust
+/// use morpho_rs_sim::{Market, supply_apy_impact, WAD};
+/// use alloy_primitives::{FixedBytes, U256};
+///
+/// let market = Market::new(
+///     FixedBytes::ZERO,
+///     U256::from(1_000_000) * WAD,
+///     U256::from(800_000) * WAD,
+///     U256::from(1_000_000) * WAD,
+///     U256::from(800_000) * WAD,
+///     1000,
+///     U256::from(100_000_000_000_000_000u64),
+///     Some(U256::from(1_268_391_679u64)),
+/// );
+///
+/// let impact = supply_apy_impact(&market, U256::from(100_000) * WAD, 1000).unwrap();
+///
+/// println!("APY: {:.2}% -> {:.2}%", impact.apy_before * 100.0, impact.apy_after * 100.0);
+/// println!("Change: {:.4}%", impact.apy_delta * 100.0);
+///
+/// // Supply dilutes returns
+/// assert!(impact.apy_delta < 0.0);
+/// ```
 pub fn supply_apy_impact(
     market: &Market,
     amount: U256,
@@ -669,7 +930,55 @@ pub fn supply_apy_impact(
     })
 }
 
-/// Calculate the APY impact of borrowing from a market
+/// Calculates the APY impact of borrowing from a market.
+///
+/// This function simulates a borrow operation and compares the borrow APY
+/// before and after, helping borrowers understand their cost of capital.
+///
+/// # Why Borrow APY Changes
+///
+/// When you borrow from a market:
+/// - **Utilization increases**: More borrow relative to supply
+/// - **Borrow rate increases**: Higher utilization = higher rates on the IRM curve
+///
+/// The magnitude depends on the borrow size relative to market liquidity.
+///
+/// # Arguments
+///
+/// * `market` - The market to analyze
+/// * `amount` - Amount of assets to borrow (WAD-scaled)
+/// * `timestamp` - Current Unix timestamp
+///
+/// # Returns
+///
+/// A [`BorrowApyImpact`] containing:
+/// - `apy_before`: Borrow APY before (cost of borrowing, as decimal)
+/// - `apy_after`: Borrow APY after
+/// - `apy_delta`: Change in borrow APY (typically positive, meaning higher cost)
+/// - `shares_minted`: Borrow shares representing the debt
+///
+/// # Example
+///
+/// ```rust
+/// use morpho_rs_sim::{Market, borrow_apy_impact, WAD};
+/// use alloy_primitives::{FixedBytes, U256};
+///
+/// let market = Market::new(
+///     FixedBytes::ZERO,
+///     U256::from(1_000_000) * WAD,
+///     U256::from(800_000) * WAD,
+///     U256::from(1_000_000) * WAD,
+///     U256::from(800_000) * WAD,
+///     1000,
+///     U256::from(100_000_000_000_000_000u64),
+///     Some(U256::from(1_268_391_679u64)),
+/// );
+///
+/// let impact = borrow_apy_impact(&market, U256::from(50_000) * WAD, 1000).unwrap();
+///
+/// // Borrowing increases utilization, raising rates for all borrowers
+/// assert!(impact.apy_delta > 0.0);
+/// ```
 pub fn borrow_apy_impact(
     market: &Market,
     amount: U256,
