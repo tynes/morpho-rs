@@ -103,7 +103,7 @@ impl VaultFiltersV2 {
     /// Convert to GraphQL filter input type.
     pub fn to_gql(&self) -> VaultV2sFilters {
         VaultV2sFilters {
-            chain_id_in: self.chain_ids.clone().map(|ids| ids.into_iter().map(|id| id as i64).collect()),
+            chain_id_in: self.chain_ids.clone().map(|ids| ids.into_iter().collect()),
             address_in: self.addresses.clone(),
             listed: self.listed,
             total_assets_usd_gte: self.total_assets_usd_gte,

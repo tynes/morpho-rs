@@ -125,7 +125,7 @@ pub fn format_v2_vaults_table(vaults: &[VaultV2]) -> String {
 
             let apy = v
                 .net_apy
-                .map(|a| format_apy(a))
+                .map(format_apy)
                 .unwrap_or_else(|| "-".to_string());
 
             VaultV2Row {

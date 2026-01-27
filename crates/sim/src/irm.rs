@@ -387,7 +387,7 @@ mod tests {
         // e^1 ≈ 2.718
         let result = w_exp(WAD.saturating_to::<i128>());
         let result_f64 = math::rate_to_f64(result);
-        assert!((result_f64 - 2.718).abs() < 0.1);
+        assert!((result_f64 - std::f64::consts::E).abs() < 0.1);
     }
 
     #[test]

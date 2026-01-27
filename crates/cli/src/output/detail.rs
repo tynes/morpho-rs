@@ -183,7 +183,7 @@ pub fn format_v2_vault_detail(vault: &VaultV2) -> String {
         for reward in &vault.rewards {
             let apr = reward
                 .supply_apr
-                .map(|a| format_apy(a))
+                .map(format_apy)
                 .unwrap_or_else(|| "-".to_string());
             output.push_str(&format!(
                 "  {} - {} APR\n",

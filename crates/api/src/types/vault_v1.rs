@@ -139,6 +139,7 @@ pub struct VaultWarning {
 
 impl VaultV1 {
     /// Create a VaultV1 from GraphQL response data.
+    #[allow(clippy::too_many_arguments)]
     pub fn from_gql(
         address: &str,
         name: String,
