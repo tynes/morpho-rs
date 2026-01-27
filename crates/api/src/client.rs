@@ -916,20 +916,13 @@ impl<'a> VaultV1Operations<'a> {
 
     /// Deposit assets into a vault, receiving shares to the signer's address.
     ///
-    /// If `auto_approve` is enabled (default), this will check the current allowance
-    /// and approve the exact minimal amount needed for the deposit if insufficient.
+    /// If `auto_approve` is enabled (default), this will approve the deposit amount
+    /// if the current allowance is insufficient.
     pub async fn deposit(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
         if self.auto_approve {
             let asset = self.client.get_asset(vault).await?;
-            let current_allowance = self
-                .client
-                .get_allowance(asset, self.client.signer_address(), vault)
-                .await?;
-            if current_allowance < amount {
-                let needed = amount - current_allowance;
-                if let Some(approval) = self.client.approve_if_needed(asset, vault, needed).await? {
-                    approval.send().await?;
-                }
+            if let Some(approval) = self.client.approve_if_needed(asset, vault, amount).await? {
+                approval.send().await?;
             }
         }
 
@@ -1020,20 +1013,13 @@ impl<'a> VaultV2Operations<'a> {
 
     /// Deposit assets into a vault, receiving shares to the signer's address.
     ///
-    /// If `auto_approve` is enabled (default), this will check the current allowance
-    /// and approve the exact minimal amount needed for the deposit if insufficient.
+    /// If `auto_approve` is enabled (default), this will approve the deposit amount
+    /// if the current allowance is insufficient.
     pub async fn deposit(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
         if self.auto_approve {
             let asset = self.client.get_asset(vault).await?;
-            let current_allowance = self
-                .client
-                .get_allowance(asset, self.client.signer_address(), vault)
-                .await?;
-            if current_allowance < amount {
-                let needed = amount - current_allowance;
-                if let Some(approval) = self.client.approve_if_needed(asset, vault, needed).await? {
-                    approval.send().await?;
-                }
+            if let Some(approval) = self.client.approve_if_needed(asset, vault, amount).await? {
+                approval.send().await?;
             }
         }
 
