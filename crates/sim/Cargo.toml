@@ -1,6 +1,6 @@
 [package]
 name = "morpho-rs-sim"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 description = "Simulation library for Morpho vault APY calculations"
 license = "MIT"

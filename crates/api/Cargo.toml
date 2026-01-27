@@ -1,6 +1,6 @@
 [package]
 name = "morpho-rs-api"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 description = "Rust API library for querying Morpho V1 (MetaMorpho) and V2 vaults via GraphQL"
 license = "MIT"
@@ -22,8 +22,8 @@ alloy-primitives = { version = "1.0", features = ["serde"] }
 alloy-chains = { version = "0.2", features = ["serde"] }
 alloy = { version = "1.4", features = ["provider-http", "signer-local", "contract", "sol-types", "rpc-types"] }
 futures = "0.3"
-morpho-rs-contracts = { version = "0.6.0", path = "../contracts" }
-morpho-rs-sim = { version = "0.4.0", path = "../sim", optional = true }
+morpho-rs-contracts = { version = "0.7.0", path = "../contracts" }
+morpho-rs-sim = { version = "0.5.0", path = "../sim", optional = true }
 
 [dev-dependencies]
 wiremock = "0.6"
