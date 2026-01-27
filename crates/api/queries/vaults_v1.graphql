@@ -1,3 +1,91 @@
+# Fragments for shared field selections
+fragment MarketStateFields on MarketState {
+  supplyAssets
+  borrowAssets
+  supplyShares
+  borrowShares
+  timestamp
+  fee
+  rateAtTarget
+  price
+}
+
+fragment MarketFields on Market {
+  uniqueKey
+  lltv
+  loanAsset {
+    address
+    symbol
+  }
+  collateralAsset {
+    address
+    symbol
+  }
+  state {
+    ...MarketStateFields
+  }
+}
+
+fragment AllocationFields on VaultAllocation {
+  market {
+    ...MarketFields
+  }
+  supplyAssets
+  supplyAssetsUsd
+  supplyCap
+  enabled
+  supplyQueueIndex
+  withdrawQueueIndex
+}
+
+fragment VaultStateFields on VaultState {
+  totalAssets
+  totalAssetsUsd
+  totalSupply
+  apy
+  netApy
+  sharePrice
+  fee
+  timelock
+  curator
+  owner
+  guardian
+  allocation {
+    ...AllocationFields
+  }
+}
+
+fragment VaultFields on Vault {
+  id
+  address
+  name
+  symbol
+  listed
+  featured
+  whitelisted
+  chain {
+    id
+    network
+  }
+  asset {
+    address
+    symbol
+    decimals
+    name
+    priceUsd
+  }
+  state {
+    ...VaultStateFields
+  }
+  allocators {
+    address
+  }
+  warnings {
+    type
+    level
+  }
+}
+
 query GetVaultsV1(
   $first: Int
   $skip: Int
@@ -7,74 +95,7 @@ query GetVaultsV1(
 ) {
   vaults(first: $first, skip: $skip, where: $where, orderBy: $orderBy, orderDirection: $orderDirection) {
     items {
-      id
-      address
-      name
-      symbol
-      listed
-      featured
-      whitelisted
-      chain {
-        id
-        network
-      }
-      asset {
-        address
-        symbol
-        decimals
-        name
-        priceUsd
-      }
-      state {
-        totalAssets
-        totalAssetsUsd
-        totalSupply
-        apy
-        netApy
-        sharePrice
-        fee
-        timelock
-        curator
-        owner
-        guardian
-        allocation {
-          market {
-            uniqueKey
-            lltv
-            loanAsset {
-              address
-              symbol
-            }
-            collateralAsset {
-              address
-              symbol
-            }
-            state {
-              supplyAssets
-              borrowAssets
-              supplyShares
-              borrowShares
-              timestamp
-              fee
-              rateAtTarget
-              price
-            }
-          }
-          supplyAssets
-          supplyAssetsUsd
-          supplyCap
-          enabled
-          supplyQueueIndex
-          withdrawQueueIndex
-        }
-      }
-      allocators {
-        address
-      }
-      warnings {
-        type
-        level
-      }
+      ...VaultFields
     }
     pageInfo {
       count
@@ -85,73 +106,6 @@ query GetVaultsV1(
 
 query GetVaultV1ByAddress($address: String!, $chainId: Int!) {
   vaultByAddress(address: $address, chainId: $chainId) {
-    id
-    address
-    name
-    symbol
-    listed
-    featured
-    whitelisted
-    chain {
-      id
-      network
-    }
-    asset {
-      address
-      symbol
-      decimals
-      name
-      priceUsd
-    }
-    state {
-      totalAssets
-      totalAssetsUsd
-      totalSupply
-      apy
-      netApy
-      sharePrice
-      fee
-      timelock
-      curator
-      owner
-      guardian
-      allocation {
-        market {
-          uniqueKey
-          lltv
-          loanAsset {
-            address
-            symbol
-          }
-          collateralAsset {
-            address
-            symbol
-          }
-          state {
-            supplyAssets
-            borrowAssets
-            supplyShares
-            borrowShares
-            timestamp
-            fee
-            rateAtTarget
-            price
-          }
-        }
-        supplyAssets
-        supplyAssetsUsd
-        supplyCap
-        enabled
-        supplyQueueIndex
-        withdrawQueueIndex
-      }
-    }
-    allocators {
-      address
-    }
-    warnings {
-      type
-      level
-    }
+    ...VaultFields
   }
 }

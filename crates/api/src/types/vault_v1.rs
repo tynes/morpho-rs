@@ -88,6 +88,8 @@ pub struct MarketStateV1 {
     pub price: Option<U256>,
     /// Liquidation LTV (WAD-scaled).
     pub lltv: U256,
+    /// Available liquidity (total_supply_assets - total_borrow_assets).
+    pub liquidity: U256,
 }
 
 /// Vault allocation to a specific market.

@@ -1263,76 +1263,6 @@ impl MorphoClient {
 
 // Conversion functions from GraphQL types to our types
 
-fn convert_v1_vault(v: get_vaults_v1::GetVaultsV1VaultsItems) -> Option<VaultV1> {
-    let chain_id = v.chain.id;
-    let asset = &v.asset;
-
-    VaultV1::from_gql(
-        &v.address,
-        v.name,
-        v.symbol,
-        chain_id,
-        v.listed,
-        v.featured,
-        v.whitelisted,
-        Asset::from_gql(
-            &asset.address,
-            asset.symbol.clone(),
-            Some(asset.name.clone()),
-            asset.decimals,
-            asset.price_usd,
-        )?,
-        v.state.as_ref().and_then(convert_v1_state),
-        v.allocators
-            .into_iter()
-            .filter_map(|a| VaultAllocator::from_gql(&a.address))
-            .collect(),
-        v.warnings
-            .into_iter()
-            .map(|w| VaultWarning {
-                warning_type: w.type_.clone(),
-                level: format!("{:?}", w.level),
-            })
-            .collect(),
-    )
-}
-
-fn convert_v1_vault_single(
-    v: get_vault_v1_by_address::GetVaultV1ByAddressVaultByAddress,
-) -> Option<VaultV1> {
-    let chain_id = v.chain.id;
-    let asset = &v.asset;
-
-    VaultV1::from_gql(
-        &v.address,
-        v.name,
-        v.symbol,
-        chain_id,
-        v.listed,
-        v.featured,
-        v.whitelisted,
-        Asset::from_gql(
-            &asset.address,
-            asset.symbol.clone(),
-            Some(asset.name.clone()),
-            asset.decimals,
-            asset.price_usd,
-        )?,
-        v.state.as_ref().and_then(convert_v1_state_single),
-        v.allocators
-            .into_iter()
-            .filter_map(|a| VaultAllocator::from_gql(&a.address))
-            .collect(),
-        v.warnings
-            .into_iter()
-            .map(|w| VaultWarning {
-                warning_type: w.type_.clone(),
-                level: format!("{:?}", w.level),
-            })
-            .collect(),
-    )
-}
-
 // Helper imports for conversion
 use crate::types::scalars::parse_bigint;
 use alloy_primitives::B256;
@@ -1344,127 +1274,124 @@ fn fee_to_wad(fee: f64) -> U256 {
     U256::from(fee_wad)
 }
 
-/// Convert V1 market state from GraphQL response.
-fn convert_v1_market_state(
-    market: &get_vaults_v1::GetVaultsV1VaultsItemsStateAllocationMarket,
-) -> Option<MarketStateV1> {
-    let market_id = B256::from_str(&market.unique_key).ok()?;
-    let ms = market.state.as_ref()?;
-    let lltv = parse_bigint(&market.lltv)?;
-    let timestamp: u64 = ms.timestamp.0.parse().ok()?;
+/// Macro to generate V1 vault conversion functions for both query types.
+/// This eliminates code duplication while maintaining type safety.
+macro_rules! impl_v1_vault_conversion {
+    ($fn_name:ident, $market_state_fn:ident, $state_fn:ident, $mod:ident) => {
+        fn $market_state_fn(
+            market: &$mod::MarketFields,
+        ) -> Option<MarketStateV1> {
+            let market_id = B256::from_str(&market.unique_key).ok()?;
+            let ms = market.state.as_ref()?;
+            let lltv = parse_bigint(&market.lltv)?;
+            let timestamp: u64 = ms.timestamp.0.parse().ok()?;
+            let total_supply_assets = parse_bigint(&ms.supply_assets)?;
+            let total_borrow_assets = parse_bigint(&ms.borrow_assets)?;
+            let liquidity = total_supply_assets.saturating_sub(total_borrow_assets);
 
-    Some(MarketStateV1 {
-        id: market_id,
-        total_supply_assets: parse_bigint(&ms.supply_assets)?,
-        total_borrow_assets: parse_bigint(&ms.borrow_assets)?,
-        total_supply_shares: parse_bigint(&ms.supply_shares)?,
-        total_borrow_shares: parse_bigint(&ms.borrow_shares)?,
-        last_update: timestamp,
-        fee: fee_to_wad(ms.fee),
-        rate_at_target: ms.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
-        price: ms.price.as_ref().and_then(|p| parse_bigint(p)),
-        lltv,
-    })
-}
-
-/// Convert V1 market state from single vault GraphQL response.
-fn convert_v1_market_state_single(
-    market: &get_vault_v1_by_address::GetVaultV1ByAddressVaultByAddressStateAllocationMarket,
-) -> Option<MarketStateV1> {
-    let market_id = B256::from_str(&market.unique_key).ok()?;
-    let ms = market.state.as_ref()?;
-    let lltv = parse_bigint(&market.lltv)?;
-    let timestamp: u64 = ms.timestamp.0.parse().ok()?;
-
-    Some(MarketStateV1 {
-        id: market_id,
-        total_supply_assets: parse_bigint(&ms.supply_assets)?,
-        total_borrow_assets: parse_bigint(&ms.borrow_assets)?,
-        total_supply_shares: parse_bigint(&ms.supply_shares)?,
-        total_borrow_shares: parse_bigint(&ms.borrow_shares)?,
-        last_update: timestamp,
-        fee: fee_to_wad(ms.fee),
-        rate_at_target: ms.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
-        price: ms.price.as_ref().and_then(|p| parse_bigint(p)),
-        lltv,
-    })
-}
-
-fn convert_v1_state(s: &get_vaults_v1::GetVaultsV1VaultsItemsState) -> Option<VaultStateV1> {
-    VaultStateV1::from_gql(
-        Some(s.curator.as_str()),
-        Some(s.owner.as_str()),
-        Some(s.guardian.as_str()),
-        &s.total_assets,
-        s.total_assets_usd,
-        &s.total_supply,
-        s.fee,
-        &s.timelock,
-        s.apy,
-        s.net_apy,
-        s.share_price.as_deref().unwrap_or("0"),
-        s.allocation
-            .iter()
-            .filter_map(|a| {
-                let market = &a.market;
-                let market_state = convert_v1_market_state(market);
-                VaultAllocation::from_gql(
-                    market.unique_key.clone(),
-                    Some(market.loan_asset.symbol.clone()),
-                    Some(market.loan_asset.address.as_str()),
-                    market.collateral_asset.as_ref().map(|ca| ca.symbol.clone()),
-                    market.collateral_asset.as_ref().map(|ca| ca.address.as_str()),
-                    &a.supply_assets,
-                    a.supply_assets_usd,
-                    &a.supply_cap,
-                    a.enabled,
-                    a.supply_queue_index.map(|i| i as i32),
-                    a.withdraw_queue_index.map(|i| i as i32),
-                    market_state,
-                )
+            Some(MarketStateV1 {
+                id: market_id,
+                total_supply_assets,
+                total_borrow_assets,
+                total_supply_shares: parse_bigint(&ms.supply_shares)?,
+                total_borrow_shares: parse_bigint(&ms.borrow_shares)?,
+                last_update: timestamp,
+                fee: fee_to_wad(ms.fee),
+                rate_at_target: ms.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
+                price: ms.price.as_ref().and_then(|p| parse_bigint(p)),
+                lltv,
+                liquidity,
             })
-            .collect(),
-    )
+        }
+
+        fn $state_fn(s: &$mod::VaultStateFields) -> Option<VaultStateV1> {
+            VaultStateV1::from_gql(
+                Some(s.curator.as_str()),
+                Some(s.owner.as_str()),
+                Some(s.guardian.as_str()),
+                &s.total_assets,
+                s.total_assets_usd,
+                &s.total_supply,
+                s.fee,
+                &s.timelock,
+                s.apy,
+                s.net_apy,
+                s.share_price.as_deref().unwrap_or("0"),
+                s.allocation
+                    .iter()
+                    .filter_map(|a| {
+                        let market = &a.market;
+                        let market_state = $market_state_fn(market);
+                        VaultAllocation::from_gql(
+                            market.unique_key.clone(),
+                            Some(market.loan_asset.symbol.clone()),
+                            Some(market.loan_asset.address.as_str()),
+                            market.collateral_asset.as_ref().map(|ca| ca.symbol.clone()),
+                            market.collateral_asset.as_ref().map(|ca| ca.address.as_str()),
+                            &a.supply_assets,
+                            a.supply_assets_usd,
+                            &a.supply_cap,
+                            a.enabled,
+                            a.supply_queue_index.map(|i| i as i32),
+                            a.withdraw_queue_index.map(|i| i as i32),
+                            market_state,
+                        )
+                    })
+                    .collect(),
+            )
+        }
+
+        fn $fn_name(v: $mod::VaultFields) -> Option<VaultV1> {
+            let chain_id = v.chain.id;
+            let asset = &v.asset;
+
+            VaultV1::from_gql(
+                &v.address,
+                v.name,
+                v.symbol,
+                chain_id,
+                v.listed,
+                v.featured,
+                v.whitelisted,
+                Asset::from_gql(
+                    &asset.address,
+                    asset.symbol.clone(),
+                    Some(asset.name.clone()),
+                    asset.decimals,
+                    asset.price_usd,
+                )?,
+                v.state.as_ref().and_then($state_fn),
+                v.allocators
+                    .into_iter()
+                    .filter_map(|a| VaultAllocator::from_gql(&a.address))
+                    .collect(),
+                v.warnings
+                    .into_iter()
+                    .map(|w| VaultWarning {
+                        warning_type: w.type_.clone(),
+                        level: format!("{:?}", w.level),
+                    })
+                    .collect(),
+            )
+        }
+    };
 }
 
-fn convert_v1_state_single(
-    s: &get_vault_v1_by_address::GetVaultV1ByAddressVaultByAddressState,
-) -> Option<VaultStateV1> {
-    VaultStateV1::from_gql(
-        Some(s.curator.as_str()),
-        Some(s.owner.as_str()),
-        Some(s.guardian.as_str()),
-        &s.total_assets,
-        s.total_assets_usd,
-        &s.total_supply,
-        s.fee,
-        &s.timelock,
-        s.apy,
-        s.net_apy,
-        s.share_price.as_deref().unwrap_or("0"),
-        s.allocation
-            .iter()
-            .filter_map(|a| {
-                let market = &a.market;
-                let market_state = convert_v1_market_state_single(market);
-                VaultAllocation::from_gql(
-                    market.unique_key.clone(),
-                    Some(market.loan_asset.symbol.clone()),
-                    Some(market.loan_asset.address.as_str()),
-                    market.collateral_asset.as_ref().map(|ca| ca.symbol.clone()),
-                    market.collateral_asset.as_ref().map(|ca| ca.address.as_str()),
-                    &a.supply_assets,
-                    a.supply_assets_usd,
-                    &a.supply_cap,
-                    a.enabled,
-                    a.supply_queue_index.map(|i| i as i32),
-                    a.withdraw_queue_index.map(|i| i as i32),
-                    market_state,
-                )
-            })
-            .collect(),
-    )
-}
+// Generate conversion functions for GetVaultsV1 query types
+impl_v1_vault_conversion!(
+    convert_v1_vault,
+    convert_v1_market_state,
+    convert_v1_state,
+    get_vaults_v1
+);
+
+// Generate conversion functions for GetVaultV1ByAddress query types
+impl_v1_vault_conversion!(
+    convert_v1_vault_single,
+    convert_v1_market_state_single,
+    convert_v1_state_single,
+    get_vault_v1_by_address
+);
 
 fn convert_v2_vault(v: get_vaults_v2::GetVaultsV2VaultV2sItems) -> Option<VaultV2> {
     let chain_id = v.chain.id;
