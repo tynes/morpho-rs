@@ -30,6 +30,7 @@ pub mod erc4626_client;
 pub mod error;
 pub mod prepared_call;
 pub mod provider;
+pub mod vault_tx_client;
 pub mod vault_v1;
 pub mod vault_v2;
 
