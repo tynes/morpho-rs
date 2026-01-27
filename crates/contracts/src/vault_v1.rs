@@ -8,10 +8,11 @@ use alloy::{
 };
 
 use crate::erc20::IERC20;
-use crate::erc4626::IERC4626;
+use crate::erc4626_client::Erc4626Client;
 use crate::error::{ContractError, Result};
 use crate::prepared_call::PreparedCall;
 use crate::provider::HttpProvider;
+use crate::impl_erc4626_transactions;
 
 /// Client for executing transactions against V1 (MetaMorpho) vaults.
 pub struct VaultV1TransactionClient {
@@ -40,17 +41,6 @@ impl VaultV1TransactionClient {
             provider,
             signer_address,
         })
-    }
-
-    /// Get the underlying asset address of a vault.
-    pub async fn get_asset(&self, vault: Address) -> Result<Address> {
-        let contract = IERC4626::new(vault, &self.provider);
-        let result = contract
-            .asset()
-            .call()
-            .await
-            .map_err(|e| ContractError::TransactionFailed(format!("Failed to get asset: {}", e)))?;
-        Ok(result)
     }
 
     /// Get the decimals of a token.
@@ -115,37 +105,21 @@ impl VaultV1TransactionClient {
 
         Ok(Some(self.approve(token, spender, amount)))
     }
+}
 
-    /// Create a prepared deposit transaction.
-    /// Returns a `PreparedCall` that can be sent or used with `MulticallBuilder`.
-    pub fn deposit(
-        &self,
-        vault: Address,
-        amount: U256,
-        receiver: Address,
-    ) -> PreparedCall<'_, IERC4626::depositCall> {
-        let call = IERC4626::depositCall { assets: amount, receiver };
-        PreparedCall::new(vault, call, U256::ZERO, &self.provider)
+// Implement the Erc4626Client trait for view functions
+impl Erc4626Client for VaultV1TransactionClient {
+    fn provider(&self) -> &HttpProvider {
+        &self.provider
     }
 
-    /// Create a prepared withdraw transaction.
-    /// Returns a `PreparedCall` that can be sent or used with `MulticallBuilder`.
-    pub fn withdraw(
-        &self,
-        vault: Address,
-        amount: U256,
-        receiver: Address,
-        owner: Address,
-    ) -> PreparedCall<'_, IERC4626::withdrawCall> {
-        let call = IERC4626::withdrawCall { assets: amount, receiver, owner };
-        PreparedCall::new(vault, call, U256::ZERO, &self.provider)
-    }
-
-    /// Get the signer's address.
-    pub fn signer_address(&self) -> Address {
+    fn signer_address(&self) -> Address {
         self.signer_address
     }
 }
+
+// Use macro to generate ERC-4626 transaction methods (deposit, withdraw, mint, redeem)
+impl_erc4626_transactions!(VaultV1TransactionClient);
 
 #[cfg(test)]
 mod tests {

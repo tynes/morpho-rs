@@ -291,3 +291,137 @@ async fn test_share_price_is_greater_than_one() {
 
     println!("\n✓ Confirmed: Share price > 1 for Steakhouse USDC vault");
 }
+
+/// Test the Erc4626Client trait methods against a real vault.
+#[tokio::test]
+#[ignore = "Requires ETH_RPC_URL environment variable"]
+async fn test_erc4626_client_view_functions() {
+    use morpho_rs_contracts::{Erc4626Client, VaultV1TransactionClient, VaultV2TransactionClient};
+
+    // Get RPC URL from environment
+    let rpc_url = match std::env::var("ETH_RPC_URL") {
+        Ok(url) => url,
+        Err(_) => {
+            eprintln!("Skipping test: ETH_RPC_URL not set");
+            return;
+        }
+    };
+
+    // Spawn Anvil forking mainnet
+    let anvil = Anvil::new()
+        .fork(&rpc_url)
+        .try_spawn()
+        .expect("Failed to spawn Anvil");
+
+    // Create both V1 and V2 clients to verify trait works on both
+    let v1_client = VaultV1TransactionClient::new(&anvil.endpoint(), TEST_PRIVATE_KEY)
+        .expect("Failed to create V1 client");
+    let v2_client = VaultV2TransactionClient::new(&anvil.endpoint(), TEST_PRIVATE_KEY)
+        .expect("Failed to create V2 client");
+
+    let test_amount = U256::from(1_000_000u64); // 1 USDC
+
+    // Test get_asset (existing)
+    let asset_v1 = v1_client.get_asset(STEAKHOUSE_USDC_VAULT).await
+        .expect("V1: Failed to get asset");
+    let asset_v2 = v2_client.get_asset(STEAKHOUSE_USDC_VAULT).await
+        .expect("V2: Failed to get asset");
+    assert_eq!(asset_v1, USDC_ADDRESS, "V1: Asset should be USDC");
+    assert_eq!(asset_v2, USDC_ADDRESS, "V2: Asset should be USDC");
+
+    // Test total_assets (new)
+    let total_assets_v1 = v1_client.total_assets(STEAKHOUSE_USDC_VAULT).await
+        .expect("V1: Failed to get total assets");
+    let total_assets_v2 = v2_client.total_assets(STEAKHOUSE_USDC_VAULT).await
+        .expect("V2: Failed to get total assets");
+    assert_eq!(total_assets_v1, total_assets_v2, "V1 and V2 should return same total assets");
+    assert!(total_assets_v1 > U256::ZERO, "Total assets should be > 0");
+    println!("Total assets: {}", total_assets_v1);
+
+    // Test convert_to_shares (new)
+    let shares_v1 = v1_client.convert_to_shares(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V1: Failed to convert to shares");
+    let shares_v2 = v2_client.convert_to_shares(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V2: Failed to convert to shares");
+    assert_eq!(shares_v1, shares_v2, "V1 and V2 should return same shares");
+    assert!(shares_v1 < test_amount, "Shares should be less than assets (share price > 1)");
+    println!("Convert {} assets to {} shares", test_amount, shares_v1);
+
+    // Test convert_to_assets (new)
+    let assets_v1 = v1_client.convert_to_assets(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V1: Failed to convert to assets");
+    let assets_v2 = v2_client.convert_to_assets(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V2: Failed to convert to assets");
+    assert_eq!(assets_v1, assets_v2, "V1 and V2 should return same assets");
+    assert!(assets_v1 > test_amount, "Assets should be greater than shares (share price > 1)");
+    println!("Convert {} shares to {} assets", test_amount, assets_v1);
+
+    // Test max_deposit (new)
+    let test_receiver = v1_client.signer_address();
+    let max_deposit_v1 = v1_client.max_deposit(STEAKHOUSE_USDC_VAULT, test_receiver).await
+        .expect("V1: Failed to get max deposit");
+    let max_deposit_v2 = v2_client.max_deposit(STEAKHOUSE_USDC_VAULT, test_receiver).await
+        .expect("V2: Failed to get max deposit");
+    assert_eq!(max_deposit_v1, max_deposit_v2, "V1 and V2 should return same max deposit");
+    println!("Max deposit: {}", max_deposit_v1);
+
+    // Test max_withdraw (new)
+    let max_withdraw_v1 = v1_client.max_withdraw(STEAKHOUSE_USDC_VAULT, test_receiver).await
+        .expect("V1: Failed to get max withdraw");
+    let max_withdraw_v2 = v2_client.max_withdraw(STEAKHOUSE_USDC_VAULT, test_receiver).await
+        .expect("V2: Failed to get max withdraw");
+    assert_eq!(max_withdraw_v1, max_withdraw_v2, "V1 and V2 should return same max withdraw");
+    println!("Max withdraw for test account: {}", max_withdraw_v1);
+
+    // Test max_mint (new)
+    let max_mint_v1 = v1_client.max_mint(STEAKHOUSE_USDC_VAULT, test_receiver).await
+        .expect("V1: Failed to get max mint");
+    let max_mint_v2 = v2_client.max_mint(STEAKHOUSE_USDC_VAULT, test_receiver).await
+        .expect("V2: Failed to get max mint");
+    assert_eq!(max_mint_v1, max_mint_v2, "V1 and V2 should return same max mint");
+    println!("Max mint: {}", max_mint_v1);
+
+    // Test max_redeem (new)
+    let max_redeem_v1 = v1_client.max_redeem(STEAKHOUSE_USDC_VAULT, test_receiver).await
+        .expect("V1: Failed to get max redeem");
+    let max_redeem_v2 = v2_client.max_redeem(STEAKHOUSE_USDC_VAULT, test_receiver).await
+        .expect("V2: Failed to get max redeem");
+    assert_eq!(max_redeem_v1, max_redeem_v2, "V1 and V2 should return same max redeem");
+    println!("Max redeem for test account: {}", max_redeem_v1);
+
+    // Test preview_deposit (new)
+    let preview_deposit_v1 = v1_client.preview_deposit(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V1: Failed to preview deposit");
+    let preview_deposit_v2 = v2_client.preview_deposit(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V2: Failed to preview deposit");
+    assert_eq!(preview_deposit_v1, preview_deposit_v2, "V1 and V2 should return same preview deposit");
+    assert_eq!(preview_deposit_v1, shares_v1, "Preview deposit should equal convert_to_shares");
+    println!("Preview deposit {} assets -> {} shares", test_amount, preview_deposit_v1);
+
+    // Test preview_mint (new)
+    let preview_mint_v1 = v1_client.preview_mint(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V1: Failed to preview mint");
+    let preview_mint_v2 = v2_client.preview_mint(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V2: Failed to preview mint");
+    assert_eq!(preview_mint_v1, preview_mint_v2, "V1 and V2 should return same preview mint");
+    println!("Preview mint {} shares -> {} assets needed", test_amount, preview_mint_v1);
+
+    // Test preview_withdraw (new)
+    let preview_withdraw_v1 = v1_client.preview_withdraw(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V1: Failed to preview withdraw");
+    let preview_withdraw_v2 = v2_client.preview_withdraw(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V2: Failed to preview withdraw");
+    assert_eq!(preview_withdraw_v1, preview_withdraw_v2, "V1 and V2 should return same preview withdraw");
+    println!("Preview withdraw {} assets -> {} shares burned", test_amount, preview_withdraw_v1);
+
+    // Test preview_redeem (new)
+    let preview_redeem_v1 = v1_client.preview_redeem(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V1: Failed to preview redeem");
+    let preview_redeem_v2 = v2_client.preview_redeem(STEAKHOUSE_USDC_VAULT, test_amount).await
+        .expect("V2: Failed to preview redeem");
+    assert_eq!(preview_redeem_v1, preview_redeem_v2, "V1 and V2 should return same preview redeem");
+    assert_eq!(preview_redeem_v1, assets_v1, "Preview redeem should equal convert_to_assets");
+    println!("Preview redeem {} shares -> {} assets", test_amount, preview_redeem_v1);
+
+    println!("\n✓ All Erc4626Client view functions work correctly on both V1 and V2 clients");
+}

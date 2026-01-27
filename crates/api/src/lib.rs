@@ -47,7 +47,7 @@ pub use client::{
 };
 pub use error::{ApiError, Result};
 pub use filters::{VaultFiltersV1, VaultFiltersV2, VaultQueryOptionsV1, VaultQueryOptionsV2};
-pub use morpho_rs_contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
+pub use morpho_rs_contracts::{Erc4626Client, VaultV1TransactionClient, VaultV2TransactionClient};
 pub use types::{
     chain_from_id, chain_serde, Asset, MarketInfo, MarketStateV1, MarketStateV2,
     MetaMorphoAllocation, MorphoMarketPosition, NamedChain, OrderDirection, UserAccountOverview,

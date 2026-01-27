@@ -3,7 +3,7 @@
 use alloy::primitives::{Address, U256};
 use alloy::rpc::types::TransactionReceipt;
 use graphql_client::{GraphQLQuery, Response};
-use morpho_rs_contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
+use morpho_rs_contracts::{Erc4626Client, VaultV1TransactionClient, VaultV2TransactionClient};
 use reqwest::Client;
 use url::Url;
 

@@ -1,6 +1,6 @@
 //! Integration tests for the contracts crate.
 
-use morpho_rs_contracts::{ContractError, VaultV1TransactionClient, VaultV2TransactionClient};
+use morpho_rs_contracts::{ContractError, Erc4626Client, VaultV1TransactionClient, VaultV2TransactionClient};
 
 #[test]
 fn test_v1_client_construction_with_valid_inputs() {

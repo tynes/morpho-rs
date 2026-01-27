@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```no_run
-//! use morpho_rs_contracts::{VaultV1TransactionClient, VaultV2TransactionClient};
+//! use morpho_rs_contracts::{Erc4626Client, VaultV1TransactionClient, VaultV2TransactionClient};
 //! use alloy::primitives::{Address, U256};
 //!
 //! #[tokio::main]
@@ -26,12 +26,14 @@
 
 pub mod erc20;
 pub mod erc4626;
+pub mod erc4626_client;
 pub mod error;
 pub mod prepared_call;
 pub mod provider;
 pub mod vault_v1;
 pub mod vault_v2;
 
+pub use erc4626_client::Erc4626Client;
 pub use error::{ContractError, Result};
 pub use prepared_call::PreparedCall;
 pub use provider::HttpProvider;
