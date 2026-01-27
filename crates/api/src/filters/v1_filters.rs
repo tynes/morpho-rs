@@ -135,7 +135,7 @@ impl VaultFiltersV1 {
     /// Convert to GraphQL filter input type.
     pub fn to_gql(&self) -> VaultFilters {
         VaultFilters {
-            chain_id_in: self.chain_ids.clone().map(|ids| ids.into_iter().map(|id| id as i64).collect()),
+            chain_id_in: self.chain_ids.clone().map(|ids| ids.into_iter().collect()),
             address_in: self.addresses.clone(),
             listed: self.listed,
             featured: self.featured,
