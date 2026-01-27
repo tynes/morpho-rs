@@ -2,7 +2,7 @@
 
 use alloy_primitives::{Address, U256};
 use anyhow::{Context, Result};
-use morpho_rs_api::{VaultV1TransactionClient, VaultV2TransactionClient};
+use morpho_rs_api::{Erc4626Client, VaultV1TransactionClient, VaultV2TransactionClient};
 
 use crate::cli::DepositArgs;
 
