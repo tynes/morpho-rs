@@ -269,6 +269,71 @@ impl VaultReward {
     }
 }
 
+// Implement Vault trait for VaultV2
+use super::vault::{Vault, VaultVersion};
+
+impl Vault for VaultV2 {
+    fn address(&self) -> Address {
+        self.address
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn symbol(&self) -> &str {
+        &self.symbol
+    }
+
+    fn chain(&self) -> NamedChain {
+        self.chain
+    }
+
+    fn version(&self) -> VaultVersion {
+        VaultVersion::V2
+    }
+
+    fn listed(&self) -> bool {
+        self.listed
+    }
+
+    fn whitelisted(&self) -> bool {
+        self.whitelisted
+    }
+
+    fn asset(&self) -> &super::asset::Asset {
+        &self.asset
+    }
+
+    fn curator(&self) -> Option<Address> {
+        self.curator
+    }
+
+    fn total_assets(&self) -> U256 {
+        self.total_assets
+    }
+
+    fn total_assets_usd(&self) -> Option<f64> {
+        self.total_assets_usd
+    }
+
+    fn total_supply(&self) -> U256 {
+        self.total_supply
+    }
+
+    fn net_apy(&self) -> f64 {
+        self.avg_net_apy.unwrap_or(0.0)
+    }
+
+    fn liquidity(&self) -> U256 {
+        self.liquidity
+    }
+
+    fn has_critical_warnings(&self) -> bool {
+        self.warnings.iter().any(|w| w.level == "CRITICAL")
+    }
+}
+
 // Simulation conversion methods (only available with "sim" feature)
 #[cfg(feature = "sim")]
 mod sim_conversion {

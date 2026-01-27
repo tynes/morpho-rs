@@ -24,11 +24,12 @@ use crate::types::vault_v1::MarketStateV1;
 use crate::types::vault_v2::{MarketStateV2, MetaMorphoAllocation, MorphoMarketPosition, VaultAdapterData};
 use crate::types::{
     Asset, MarketInfo, NamedChain, UserAccountOverview, UserMarketPosition,
-    UserState, UserVaultPositions, UserVaultV1Position, UserVaultV2Position, Vault, VaultAdapter,
+    UserState, UserVaultPositions, UserVaultV1Position, UserVaultV2Position, VaultAdapter,
     VaultAllocation, VaultAllocator, VaultInfo, VaultPositionState,
     VaultReward, VaultStateV1, VaultV1, VaultV2, VaultV2Warning,
     VaultWarning, SUPPORTED_CHAINS,
 };
+use crate::types::vault::Vault as VaultTrait;
 
 /// Default Morpho GraphQL API endpoint.
 pub const DEFAULT_API_URL: &str = "https://api.morpho.org/graphql";
@@ -619,30 +620,51 @@ impl MorphoApiClient {
         }
     }
 
-    /// Get vaults (V1 and V2) on a specific chain as unified Vault type.
-    pub async fn get_vaults_by_chain(&self, chain: NamedChain) -> Result<Vec<Vault>> {
+    /// Get vaults (V1 and V2) on a specific chain as unified Vault trait objects.
+    pub async fn get_vaults_by_chain(&self, chain: NamedChain) -> Result<Vec<Box<dyn VaultTrait>>> {
         let (v1_vaults, v2_vaults) = tokio::try_join!(
             self.v1.get_vaults_by_chain(chain),
             self.v2.get_vaults_by_chain(chain),
         )?;
 
-        let mut vaults: Vec<Vault> = Vec::with_capacity(v1_vaults.len() + v2_vaults.len());
-        vaults.extend(v1_vaults.into_iter().map(Vault::from));
-        vaults.extend(v2_vaults.into_iter().map(Vault::from));
+        let mut vaults: Vec<Box<dyn VaultTrait>> =
+            Vec::with_capacity(v1_vaults.len() + v2_vaults.len());
+        vaults.extend(
+            v1_vaults
+                .into_iter()
+                .map(|v| Box::new(v) as Box<dyn VaultTrait>),
+        );
+        vaults.extend(
+            v2_vaults
+                .into_iter()
+                .map(|v| Box::new(v) as Box<dyn VaultTrait>),
+        );
 
         Ok(vaults)
     }
 
-    /// Get whitelisted vaults (V1 and V2) as unified Vault type.
-    pub async fn get_whitelisted_vaults(&self, chain: Option<NamedChain>) -> Result<Vec<Vault>> {
+    /// Get whitelisted vaults (V1 and V2) as unified Vault trait objects.
+    pub async fn get_whitelisted_vaults(
+        &self,
+        chain: Option<NamedChain>,
+    ) -> Result<Vec<Box<dyn VaultTrait>>> {
         let (v1_vaults, v2_vaults) = tokio::try_join!(
             self.v1.get_whitelisted_vaults(chain),
             self.v2.get_whitelisted_vaults(chain),
         )?;
 
-        let mut vaults: Vec<Vault> = Vec::with_capacity(v1_vaults.len() + v2_vaults.len());
-        vaults.extend(v1_vaults.into_iter().map(Vault::from));
-        vaults.extend(v2_vaults.into_iter().map(Vault::from));
+        let mut vaults: Vec<Box<dyn VaultTrait>> =
+            Vec::with_capacity(v1_vaults.len() + v2_vaults.len());
+        vaults.extend(
+            v1_vaults
+                .into_iter()
+                .map(|v| Box::new(v) as Box<dyn VaultTrait>),
+        );
+        vaults.extend(
+            v2_vaults
+                .into_iter()
+                .map(|v| Box::new(v) as Box<dyn VaultTrait>),
+        );
 
         Ok(vaults)
     }
@@ -1208,13 +1230,16 @@ impl MorphoClient {
         &self.api
     }
 
-    /// Get vaults (V1 and V2) on a specific chain as unified Vault type.
-    pub async fn get_vaults_by_chain(&self, chain: NamedChain) -> Result<Vec<Vault>> {
+    /// Get vaults (V1 and V2) on a specific chain as unified Vault trait objects.
+    pub async fn get_vaults_by_chain(&self, chain: NamedChain) -> Result<Vec<Box<dyn VaultTrait>>> {
         self.api.get_vaults_by_chain(chain).await
     }
 
-    /// Get whitelisted vaults (V1 and V2) as unified Vault type.
-    pub async fn get_whitelisted_vaults(&self, chain: Option<NamedChain>) -> Result<Vec<Vault>> {
+    /// Get whitelisted vaults (V1 and V2) as unified Vault trait objects.
+    pub async fn get_whitelisted_vaults(
+        &self,
+        chain: Option<NamedChain>,
+    ) -> Result<Vec<Box<dyn VaultTrait>>> {
         self.api.get_whitelisted_vaults(chain).await
     }
 

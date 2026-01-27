@@ -246,6 +246,85 @@ impl VaultAllocator {
     }
 }
 
+// Implement Vault trait for VaultV1
+use super::vault::{Vault, VaultVersion};
+
+impl Vault for VaultV1 {
+    fn address(&self) -> Address {
+        self.address
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn symbol(&self) -> &str {
+        &self.symbol
+    }
+
+    fn chain(&self) -> NamedChain {
+        self.chain
+    }
+
+    fn version(&self) -> VaultVersion {
+        VaultVersion::V1
+    }
+
+    fn listed(&self) -> bool {
+        self.listed
+    }
+
+    fn whitelisted(&self) -> bool {
+        self.whitelisted
+    }
+
+    fn asset(&self) -> &super::asset::Asset {
+        &self.asset
+    }
+
+    fn curator(&self) -> Option<Address> {
+        self.state.as_ref().and_then(|s| s.curator)
+    }
+
+    fn total_assets(&self) -> U256 {
+        self.state
+            .as_ref()
+            .map(|s| s.total_assets)
+            .unwrap_or(U256::ZERO)
+    }
+
+    fn total_assets_usd(&self) -> Option<f64> {
+        self.state.as_ref().and_then(|s| s.total_assets_usd)
+    }
+
+    fn total_supply(&self) -> U256 {
+        self.state
+            .as_ref()
+            .map(|s| s.total_supply)
+            .unwrap_or(U256::ZERO)
+    }
+
+    fn net_apy(&self) -> f64 {
+        self.state.as_ref().map(|s| s.net_apy).unwrap_or(0.0)
+    }
+
+    fn liquidity(&self) -> U256 {
+        self.state
+            .as_ref()
+            .map(|s| {
+                s.allocation
+                    .iter()
+                    .filter_map(|a| a.market_state.as_ref().map(|m| m.liquidity))
+                    .fold(U256::ZERO, |acc, l| acc + l)
+            })
+            .unwrap_or(U256::ZERO)
+    }
+
+    fn has_critical_warnings(&self) -> bool {
+        self.warnings.iter().any(|w| w.level == "CRITICAL")
+    }
+}
+
 // Simulation conversion methods (only available with "sim" feature)
 #[cfg(feature = "sim")]
 mod sim_conversion {

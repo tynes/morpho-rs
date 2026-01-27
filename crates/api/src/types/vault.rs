@@ -5,9 +5,6 @@ use alloy_primitives::{Address, U256};
 use serde::{Deserialize, Serialize};
 
 use super::asset::Asset;
-use super::chain::chain_serde;
-use super::vault_v1::VaultV1;
-use super::vault_v2::VaultV2;
 
 /// Vault version.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -27,97 +24,38 @@ impl std::fmt::Display for VaultVersion {
     }
 }
 
-/// Unified vault representation that works for both V1 and V2 vaults.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Vault {
-    /// Vault version (V1 or V2).
-    pub version: VaultVersion,
-    /// The vault's contract address.
-    pub address: Address,
-    /// The vault's name.
-    pub name: String,
-    /// The vault's symbol.
-    pub symbol: String,
-    /// The blockchain the vault is deployed on.
-    #[serde(with = "chain_serde")]
-    pub chain: NamedChain,
-    /// Whether the vault is listed on the Morpho UI.
-    pub listed: bool,
-    /// The vault's underlying asset.
-    pub asset: Asset,
-    /// The curator's address (if available).
-    pub curator: Option<Address>,
-    /// Total assets in the vault (in asset's smallest unit).
-    pub total_assets: U256,
-    /// Total assets in USD.
-    pub total_assets_usd: Option<f64>,
-    /// Total supply of vault shares.
-    pub total_supply: U256,
-    /// Net APY after fees.
-    pub net_apy: f64,
-}
-
-impl Vault {
-    /// Create a unified Vault from a V1 vault.
-    pub fn from_v1(vault: &VaultV1) -> Self {
-        let (total_assets, total_assets_usd, total_supply, net_apy, curator) =
-            if let Some(state) = &vault.state {
-                (
-                    state.total_assets,
-                    state.total_assets_usd,
-                    state.total_supply,
-                    state.net_apy,
-                    state.curator,
-                )
-            } else {
-                (U256::ZERO, None, U256::ZERO, 0.0, None)
-            };
-
-        Vault {
-            version: VaultVersion::V1,
-            address: vault.address,
-            name: vault.name.clone(),
-            symbol: vault.symbol.clone(),
-            chain: vault.chain,
-            listed: vault.listed,
-            asset: vault.asset.clone(),
-            curator,
-            total_assets,
-            total_assets_usd,
-            total_supply,
-            net_apy,
-        }
-    }
-
-    /// Create a unified Vault from a V2 vault.
-    pub fn from_v2(vault: &VaultV2) -> Self {
-        Vault {
-            version: VaultVersion::V2,
-            address: vault.address,
-            name: vault.name.clone(),
-            symbol: vault.symbol.clone(),
-            chain: vault.chain,
-            listed: vault.listed,
-            asset: vault.asset.clone(),
-            curator: vault.curator,
-            total_assets: vault.total_assets,
-            total_assets_usd: vault.total_assets_usd,
-            total_supply: vault.total_supply,
-            net_apy: vault.avg_net_apy.unwrap_or(0.0),
-        }
-    }
-}
-
-impl From<VaultV1> for Vault {
-    fn from(vault: VaultV1) -> Self {
-        Vault::from_v1(&vault)
-    }
-}
-
-impl From<VaultV2> for Vault {
-    fn from(vault: VaultV2) -> Self {
-        Vault::from_v2(&vault)
-    }
+/// Trait for common vault operations across V1 and V2.
+pub trait Vault: Send + Sync {
+    /// Returns the vault's contract address.
+    fn address(&self) -> Address;
+    /// Returns the vault's name.
+    fn name(&self) -> &str;
+    /// Returns the vault's symbol.
+    fn symbol(&self) -> &str;
+    /// Returns the blockchain the vault is deployed on.
+    fn chain(&self) -> NamedChain;
+    /// Returns the vault version (V1 or V2).
+    fn version(&self) -> VaultVersion;
+    /// Returns whether the vault is listed on the Morpho UI.
+    fn listed(&self) -> bool;
+    /// Returns whether the vault is whitelisted.
+    fn whitelisted(&self) -> bool;
+    /// Returns the vault's underlying asset.
+    fn asset(&self) -> &Asset;
+    /// Returns the curator's address (if available).
+    fn curator(&self) -> Option<Address>;
+    /// Returns the total assets in the vault (in asset's smallest unit).
+    fn total_assets(&self) -> U256;
+    /// Returns the total assets in USD.
+    fn total_assets_usd(&self) -> Option<f64>;
+    /// Returns the total supply of vault shares.
+    fn total_supply(&self) -> U256;
+    /// Returns the net APY after fees.
+    fn net_apy(&self) -> f64;
+    /// Returns the available liquidity.
+    fn liquidity(&self) -> U256;
+    /// Returns whether the vault has any critical warnings.
+    fn has_critical_warnings(&self) -> bool;
 }
 
 #[cfg(test)]

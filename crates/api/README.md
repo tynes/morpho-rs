@@ -30,10 +30,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create an API-only client (no transaction support)
     let client = MorphoClient::new();
 
-    // Query vaults on a specific chain
+    // Query vaults on a specific chain (returns Vec<Box<dyn Vault>>)
     let vaults = client.api().get_vaults_by_chain(NamedChain::Mainnet).await?;
     for vault in vaults {
-        println!("{}: {} (APY: {:.2}%)", vault.symbol, vault.name, vault.net_apy * 100.0);
+        // Vault is a trait - access via methods
+        println!("{}: {} (APY: {:.2}%)", vault.symbol(), vault.name(), vault.net_apy() * 100.0);
     }
 
     Ok(())
@@ -171,9 +172,9 @@ println!("Total assets USD: {:?}", overview.state.total_assets_usd);
 
 ### Data Types
 
-- `Vault` - Unified vault type (V1 or V2)
-- `VaultV1` / `VaultV2` - Version-specific vault types
-- `VaultStateV1` / `VaultStateV2` - Vault state with APY, fees, allocations
+- `Vault` - Trait for common vault operations (implemented by VaultV1 and VaultV2)
+- `VaultV1` / `VaultV2` - Version-specific vault types implementing `Vault` trait
+- `VaultStateV1` - V1 vault state with APY, fees, allocations
 - `NamedChain` - Supported blockchain networks (from alloy-chains)
 - `Asset` - Token information
 - `UserVaultPositions` - User's vault positions
