@@ -14,3 +14,12 @@ thiserror = "2.0"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+alloy = { version = "1.4", features = [
+    "provider-http",
+    "signer-local",
+    "contract",
+    "sol-types",
+    "rpc-types",
+    "node-bindings",
+    "provider-anvil-api"
+] }
