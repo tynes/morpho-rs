@@ -56,6 +56,15 @@ pub trait Vault: Send + Sync {
     fn liquidity(&self) -> U256;
     /// Returns whether the vault has any critical warnings.
     fn has_critical_warnings(&self) -> bool;
+
+    /// Clones the vault into a boxed trait object.
+    fn clone_box(&self) -> Box<dyn Vault>;
+}
+
+impl Clone for Box<dyn Vault> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
 }
 
 #[cfg(test)]

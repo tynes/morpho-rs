@@ -332,6 +332,10 @@ impl Vault for VaultV2 {
     fn has_critical_warnings(&self) -> bool {
         self.warnings.iter().any(|w| w.level == "CRITICAL")
     }
+
+    fn clone_box(&self) -> Box<dyn Vault> {
+        Box::new(self.clone())
+    }
 }
 
 // Simulation conversion methods (only available with "sim" feature)
