@@ -31,6 +31,205 @@ use crate::types::{
 };
 use crate::types::vault::Vault as VaultTrait;
 
+/// Macro to define a vault API client struct with common infrastructure.
+///
+/// Generates:
+/// - The struct with `http_client: Client` and `config: ClientConfig`
+/// - `Default` implementation
+/// - `new()` and `with_config()` constructors
+/// - `execute()` method for GraphQL queries
+/// - `http_client()` and `config()` accessors
+macro_rules! define_vault_client_core {
+    (
+        $(#[$meta:meta])*
+        $client_name:ident
+    ) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone)]
+        pub struct $client_name {
+            http_client: Client,
+            config: ClientConfig,
+        }
+
+        impl Default for $client_name {
+            fn default() -> Self {
+                Self::new()
+            }
+        }
+
+        impl $client_name {
+            /// Create a new vault client with default configuration.
+            pub fn new() -> Self {
+                Self {
+                    http_client: Client::new(),
+                    config: ClientConfig::default(),
+                }
+            }
+
+            /// Create a new vault client with custom configuration.
+            pub fn with_config(config: ClientConfig) -> Self {
+                Self {
+                    http_client: Client::new(),
+                    config,
+                }
+            }
+
+            /// Get a reference to the HTTP client.
+            pub fn http_client(&self) -> &Client {
+                &self.http_client
+            }
+
+            /// Get a reference to the client configuration.
+            pub fn config(&self) -> &ClientConfig {
+                &self.config
+            }
+
+            /// Execute a GraphQL query.
+            async fn execute<Q: GraphQLQuery>(
+                &self,
+                variables: Q::Variables,
+            ) -> Result<Q::ResponseData> {
+                let request_body = Q::build_query(variables);
+                let response = self
+                    .http_client
+                    .post(self.config.api_url.as_str())
+                    .json(&request_body)
+                    .send()
+                    .await?;
+
+                let response_body: Response<Q::ResponseData> = response.json().await?;
+
+                if let Some(errors) = response_body.errors {
+                    if !errors.is_empty() {
+                        return Err(ApiError::GraphQL(
+                            errors
+                                .iter()
+                                .map(|e| e.message.clone())
+                                .collect::<Vec<_>>()
+                                .join("; "),
+                        ));
+                    }
+                }
+
+                response_body
+                    .data
+                    .ok_or_else(|| ApiError::Parse("No data in response".to_string()))
+            }
+        }
+    };
+}
+
+/// Macro to define vault operations wrapper with common transaction methods.
+///
+/// Generates a wrapper struct with:
+/// - `deposit()`, `withdraw()`, `balance()` methods
+/// - `approve()`, `get_allowance()`, `get_asset()`, `get_decimals()` methods
+/// - `signer_address()`, `auto_approve()` accessors
+macro_rules! define_vault_operations {
+    (
+        $(#[$meta:meta])*
+        $ops_name:ident,
+        $tx_client:ty
+    ) => {
+        $(#[$meta])*
+        pub struct $ops_name<'a> {
+            client: &'a $tx_client,
+            auto_approve: bool,
+        }
+
+        impl<'a> $ops_name<'a> {
+            /// Create a new operations wrapper.
+            fn new(client: &'a $tx_client, auto_approve: bool) -> Self {
+                Self { client, auto_approve }
+            }
+
+            /// Deposit assets into a vault, receiving shares to the signer's address.
+            ///
+            /// If `auto_approve` is enabled (default), this will approve the deposit amount
+            /// if the current allowance is insufficient.
+            pub async fn deposit(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
+                if self.auto_approve {
+                    let asset = self.client.get_asset(vault).await?;
+                    if let Some(approval) = self.client.approve_if_needed(asset, vault, amount).await? {
+                        approval.send().await?;
+                    }
+                }
+
+                let receipt = self
+                    .client
+                    .deposit(vault, amount, self.client.signer_address())
+                    .send()
+                    .await?;
+                Ok(receipt)
+            }
+
+            /// Withdraw assets from a vault to the signer's address (withdrawing signer's shares).
+            pub async fn withdraw(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
+                let signer = self.client.signer_address();
+                let receipt = self.client.withdraw(vault, amount, signer, signer).send().await?;
+                Ok(receipt)
+            }
+
+            /// Get the signer's vault share balance.
+            pub async fn balance(&self, vault: Address) -> Result<U256> {
+                let balance = self
+                    .client
+                    .get_balance(vault, self.client.signer_address())
+                    .await?;
+                Ok(balance)
+            }
+
+            /// Approve a vault to spend the signer's tokens if needed.
+            /// Returns the transaction receipt if approval was performed, None if already approved.
+            pub async fn approve(
+                &self,
+                vault: Address,
+                amount: U256,
+            ) -> Result<Option<TransactionReceipt>> {
+                let asset = self.client.get_asset(vault).await?;
+                if let Some(approval) = self.client.approve_if_needed(asset, vault, amount).await? {
+                    let receipt = approval.send().await?;
+                    Ok(Some(receipt))
+                } else {
+                    Ok(None)
+                }
+            }
+
+            /// Get the current allowance for the vault to spend the signer's tokens.
+            pub async fn get_allowance(&self, vault: Address) -> Result<U256> {
+                let asset = self.client.get_asset(vault).await?;
+                let allowance = self
+                    .client
+                    .get_allowance(asset, self.client.signer_address(), vault)
+                    .await?;
+                Ok(allowance)
+            }
+
+            /// Get the underlying asset address of a vault.
+            pub async fn get_asset(&self, vault: Address) -> Result<Address> {
+                let asset = self.client.get_asset(vault).await?;
+                Ok(asset)
+            }
+
+            /// Get the decimals of a token.
+            pub async fn get_decimals(&self, token: Address) -> Result<u8> {
+                let decimals = self.client.get_decimals(token).await?;
+                Ok(decimals)
+            }
+
+            /// Get the signer's address.
+            pub fn signer_address(&self) -> Address {
+                self.client.signer_address()
+            }
+
+            /// Check if auto_approve is enabled.
+            pub fn auto_approve(&self) -> bool {
+                self.auto_approve
+            }
+        }
+    };
+}
+
 /// Default Morpho GraphQL API endpoint.
 pub const DEFAULT_API_URL: &str = "https://api.morpho.org/graphql";
 
@@ -74,68 +273,13 @@ impl ClientConfig {
     }
 }
 
-/// Client for querying V1 (MetaMorpho) vaults.
-#[derive(Debug, Clone)]
-pub struct VaultV1Client {
-    http_client: Client,
-    config: ClientConfig,
-}
-
-impl Default for VaultV1Client {
-    fn default() -> Self {
-        Self::new()
-    }
+// Generate VaultV1Client struct and core methods
+define_vault_client_core! {
+    /// Client for querying V1 (MetaMorpho) vaults.
+    VaultV1Client
 }
 
 impl VaultV1Client {
-    /// Create a new V1 vault client with default configuration.
-    pub fn new() -> Self {
-        Self {
-            http_client: Client::new(),
-            config: ClientConfig::default(),
-        }
-    }
-
-    /// Create a new V1 vault client with custom configuration.
-    pub fn with_config(config: ClientConfig) -> Self {
-        Self {
-            http_client: Client::new(),
-            config,
-        }
-    }
-
-    /// Execute a GraphQL query.
-    async fn execute<Q: GraphQLQuery>(
-        &self,
-        variables: Q::Variables,
-    ) -> Result<Q::ResponseData> {
-        let request_body = Q::build_query(variables);
-        let response = self
-            .http_client
-            .post(self.config.api_url.as_str())
-            .json(&request_body)
-            .send()
-            .await?;
-
-        let response_body: Response<Q::ResponseData> = response.json().await?;
-
-        if let Some(errors) = response_body.errors {
-            if !errors.is_empty() {
-                return Err(ApiError::GraphQL(
-                    errors
-                        .iter()
-                        .map(|e| e.message.clone())
-                        .collect::<Vec<_>>()
-                        .join("; "),
-                ));
-            }
-        }
-
-        response_body
-            .data
-            .ok_or_else(|| ApiError::Parse("No data in response".to_string()))
-    }
-
     /// Get V1 vaults with optional filters.
     pub async fn get_vaults(&self, filters: Option<VaultFiltersV1>) -> Result<Vec<VaultV1>> {
         let variables = get_vaults_v1::Variables {
@@ -318,68 +462,13 @@ impl VaultV1Client {
     }
 }
 
-/// Client for querying V2 vaults.
-#[derive(Debug, Clone)]
-pub struct VaultV2Client {
-    http_client: Client,
-    config: ClientConfig,
-}
-
-impl Default for VaultV2Client {
-    fn default() -> Self {
-        Self::new()
-    }
+// Generate VaultV2Client struct and core methods
+define_vault_client_core! {
+    /// Client for querying V2 vaults.
+    VaultV2Client
 }
 
 impl VaultV2Client {
-    /// Create a new V2 vault client with default configuration.
-    pub fn new() -> Self {
-        Self {
-            http_client: Client::new(),
-            config: ClientConfig::default(),
-        }
-    }
-
-    /// Create a new V2 vault client with custom configuration.
-    pub fn with_config(config: ClientConfig) -> Self {
-        Self {
-            http_client: Client::new(),
-            config,
-        }
-    }
-
-    /// Execute a GraphQL query.
-    async fn execute<Q: GraphQLQuery>(
-        &self,
-        variables: Q::Variables,
-    ) -> Result<Q::ResponseData> {
-        let request_body = Q::build_query(variables);
-        let response = self
-            .http_client
-            .post(self.config.api_url.as_str())
-            .json(&request_body)
-            .send()
-            .await?;
-
-        let response_body: Response<Q::ResponseData> = response.json().await?;
-
-        if let Some(errors) = response_body.errors {
-            if !errors.is_empty() {
-                return Err(ApiError::GraphQL(
-                    errors
-                        .iter()
-                        .map(|e| e.message.clone())
-                        .collect::<Vec<_>>()
-                        .join("; "),
-                ));
-            }
-        }
-
-        response_body
-            .data
-            .ok_or_else(|| ApiError::Parse("No data in response".to_string()))
-    }
-
     /// Get V2 vaults with optional filters.
     pub async fn get_vaults(&self, filters: Option<VaultFiltersV2>) -> Result<Vec<VaultV2>> {
         let variables = get_vaults_v2::Variables {
@@ -924,198 +1013,18 @@ impl MorphoClientConfig {
     }
 }
 
-/// Wrapper for V1 vault operations that automatically uses the signer's address.
-pub struct VaultV1Operations<'a> {
-    client: &'a VaultV1TransactionClient,
-    auto_approve: bool,
+// Generate VaultV1Operations using macro
+define_vault_operations! {
+    /// Wrapper for V1 vault operations that automatically uses the signer's address.
+    VaultV1Operations,
+    VaultV1TransactionClient
 }
 
-impl<'a> VaultV1Operations<'a> {
-    /// Create a new V1 operations wrapper.
-    fn new(client: &'a VaultV1TransactionClient, auto_approve: bool) -> Self {
-        Self { client, auto_approve }
-    }
-
-    /// Deposit assets into a vault, receiving shares to the signer's address.
-    ///
-    /// If `auto_approve` is enabled (default), this will approve the deposit amount
-    /// if the current allowance is insufficient.
-    pub async fn deposit(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
-        if self.auto_approve {
-            let asset = self.client.get_asset(vault).await?;
-            if let Some(approval) = self.client.approve_if_needed(asset, vault, amount).await? {
-                approval.send().await?;
-            }
-        }
-
-        let receipt = self
-            .client
-            .deposit(vault, amount, self.client.signer_address())
-            .send()
-            .await?;
-        Ok(receipt)
-    }
-
-    /// Withdraw assets from a vault to the signer's address (withdrawing signer's shares).
-    pub async fn withdraw(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
-        let signer = self.client.signer_address();
-        let receipt = self.client.withdraw(vault, amount, signer, signer).send().await?;
-        Ok(receipt)
-    }
-
-    /// Get the signer's vault share balance.
-    pub async fn balance(&self, vault: Address) -> Result<U256> {
-        let balance = self
-            .client
-            .get_balance(vault, self.client.signer_address())
-            .await?;
-        Ok(balance)
-    }
-
-    /// Approve a vault to spend the signer's tokens if needed.
-    /// Returns the transaction receipt if approval was performed, None if already approved.
-    pub async fn approve(
-        &self,
-        vault: Address,
-        amount: U256,
-    ) -> Result<Option<TransactionReceipt>> {
-        let asset = self.client.get_asset(vault).await?;
-        if let Some(approval) = self.client.approve_if_needed(asset, vault, amount).await? {
-            let receipt = approval.send().await?;
-            Ok(Some(receipt))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Get the current allowance for the vault to spend the signer's tokens.
-    pub async fn get_allowance(&self, vault: Address) -> Result<U256> {
-        let asset = self.client.get_asset(vault).await?;
-        let allowance = self
-            .client
-            .get_allowance(asset, self.client.signer_address(), vault)
-            .await?;
-        Ok(allowance)
-    }
-
-    /// Get the underlying asset address of a vault.
-    pub async fn get_asset(&self, vault: Address) -> Result<Address> {
-        let asset = self.client.get_asset(vault).await?;
-        Ok(asset)
-    }
-
-    /// Get the decimals of a token.
-    pub async fn get_decimals(&self, token: Address) -> Result<u8> {
-        let decimals = self.client.get_decimals(token).await?;
-        Ok(decimals)
-    }
-
-    /// Get the signer's address.
-    pub fn signer_address(&self) -> Address {
-        self.client.signer_address()
-    }
-
-    /// Check if auto_approve is enabled.
-    pub fn auto_approve(&self) -> bool {
-        self.auto_approve
-    }
-}
-
-/// Wrapper for V2 vault operations that automatically uses the signer's address.
-pub struct VaultV2Operations<'a> {
-    client: &'a VaultV2TransactionClient,
-    auto_approve: bool,
-}
-
-impl<'a> VaultV2Operations<'a> {
-    /// Create a new V2 operations wrapper.
-    fn new(client: &'a VaultV2TransactionClient, auto_approve: bool) -> Self {
-        Self { client, auto_approve }
-    }
-
-    /// Deposit assets into a vault, receiving shares to the signer's address.
-    ///
-    /// If `auto_approve` is enabled (default), this will approve the deposit amount
-    /// if the current allowance is insufficient.
-    pub async fn deposit(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
-        if self.auto_approve {
-            let asset = self.client.get_asset(vault).await?;
-            if let Some(approval) = self.client.approve_if_needed(asset, vault, amount).await? {
-                approval.send().await?;
-            }
-        }
-
-        let receipt = self
-            .client
-            .deposit(vault, amount, self.client.signer_address())
-            .send()
-            .await?;
-        Ok(receipt)
-    }
-
-    /// Withdraw assets from a vault to the signer's address (withdrawing signer's shares).
-    pub async fn withdraw(&self, vault: Address, amount: U256) -> Result<TransactionReceipt> {
-        let signer = self.client.signer_address();
-        let receipt = self.client.withdraw(vault, amount, signer, signer).send().await?;
-        Ok(receipt)
-    }
-
-    /// Get the signer's vault share balance.
-    pub async fn balance(&self, vault: Address) -> Result<U256> {
-        let balance = self
-            .client
-            .get_balance(vault, self.client.signer_address())
-            .await?;
-        Ok(balance)
-    }
-
-    /// Approve a vault to spend the signer's tokens if needed.
-    /// Returns the transaction receipt if approval was performed, None if already approved.
-    pub async fn approve(
-        &self,
-        vault: Address,
-        amount: U256,
-    ) -> Result<Option<TransactionReceipt>> {
-        let asset = self.client.get_asset(vault).await?;
-        if let Some(approval) = self.client.approve_if_needed(asset, vault, amount).await? {
-            let receipt = approval.send().await?;
-            Ok(Some(receipt))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Get the current allowance for the vault to spend the signer's tokens.
-    pub async fn get_allowance(&self, vault: Address) -> Result<U256> {
-        let asset = self.client.get_asset(vault).await?;
-        let allowance = self
-            .client
-            .get_allowance(asset, self.client.signer_address(), vault)
-            .await?;
-        Ok(allowance)
-    }
-
-    /// Get the underlying asset address of a vault.
-    pub async fn get_asset(&self, vault: Address) -> Result<Address> {
-        let asset = self.client.get_asset(vault).await?;
-        Ok(asset)
-    }
-
-    /// Get the decimals of a token.
-    pub async fn get_decimals(&self, token: Address) -> Result<u8> {
-        let decimals = self.client.get_decimals(token).await?;
-        Ok(decimals)
-    }
-
-    /// Get the signer's address.
-    pub fn signer_address(&self) -> Address {
-        self.client.signer_address()
-    }
-
-    /// Check if auto_approve is enabled.
-    pub fn auto_approve(&self) -> bool {
-        self.auto_approve
-    }
+// Generate VaultV2Operations using macro
+define_vault_operations! {
+    /// Wrapper for V2 vault operations that automatically uses the signer's address.
+    VaultV2Operations,
+    VaultV2TransactionClient
 }
 
 /// Unified Morpho client combining API queries and on-chain transactions.
