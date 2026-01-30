@@ -217,6 +217,18 @@ macro_rules! define_vault_operations {
                 Ok(decimals)
             }
 
+            /// Get the maximum amount of assets the signer can withdraw from a vault.
+            pub async fn max_withdraw(&self, vault: Address) -> Result<U256> {
+                let max = self.client.max_withdraw(vault, self.client.signer_address()).await?;
+                Ok(max)
+            }
+
+            /// Convert a share amount to the equivalent asset amount.
+            pub async fn convert_to_assets(&self, vault: Address, shares: U256) -> Result<U256> {
+                let assets = self.client.convert_to_assets(vault, shares).await?;
+                Ok(assets)
+            }
+
             /// Get the signer's address.
             pub fn signer_address(&self) -> Address {
                 self.client.signer_address()
