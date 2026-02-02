@@ -2,11 +2,12 @@
 
 ## High Priority - Test Coverage
 
-### CLI Crate (0% coverage)
-- [ ] Add integration tests for vault commands
-- [ ] Test deposit/withdraw command logic
-- [ ] Test output formatting (table.rs)
-- [ ] Test CLI argument parsing
+### CLI Crate (~70-80% coverage on core logic)
+- [ ] Add integration tests for vault commands (requires API mocking)
+- [x] Test deposit/withdraw command logic (pure functions: parse_amount, format_gas)
+- [x] Test output formatting (table.rs: truncate_address, truncate_name, format_apy, format_usd)
+- [x] Test output formatting (positions.rs: negative value handling in format_usd)
+- [x] Test CLI argument parsing (ChainArg::FromStr with all chain aliases, full CLI arg parsing)
 
 ### API Crate (~3% coverage)
 - [ ] Test MorphoClient query methods

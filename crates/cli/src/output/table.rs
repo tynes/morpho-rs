@@ -146,3 +146,117 @@ pub fn format_v2_vaults_table(vaults: &[VaultV2]) -> String {
 
     table.to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // truncate_address tests
+    #[test]
+    fn test_truncate_address_long() {
+        let addr = "0x1234567890abcdef1234567890abcdef12345678";
+        assert_eq!(truncate_address(addr), "0x1234...5678");
+    }
+
+    #[test]
+    fn test_truncate_address_exact_10() {
+        let addr = "0x12345678";
+        assert_eq!(truncate_address(addr), "0x12345678");
+    }
+
+    #[test]
+    fn test_truncate_address_short() {
+        let addr = "0x1234";
+        assert_eq!(truncate_address(addr), "0x1234");
+    }
+
+    #[test]
+    fn test_truncate_address_11_chars() {
+        let addr = "0x123456789";
+        assert_eq!(truncate_address(addr), "0x1234...6789");
+    }
+
+    // truncate_name tests
+    #[test]
+    fn test_truncate_name_under_limit() {
+        assert_eq!(truncate_name("Short Name", 20), "Short Name");
+    }
+
+    #[test]
+    fn test_truncate_name_at_limit() {
+        assert_eq!(truncate_name("Exactly Twenty Chars", 20), "Exactly Twenty Chars");
+    }
+
+    #[test]
+    fn test_truncate_name_over_limit() {
+        assert_eq!(truncate_name("This is a very long name", 20), "This is a very lo...");
+    }
+
+    #[test]
+    fn test_truncate_name_custom_limit() {
+        assert_eq!(truncate_name("Hello World", 8), "Hello...");
+    }
+
+    // format_apy tests
+    #[test]
+    fn test_format_apy_zero() {
+        assert_eq!(format_apy(0.0), "0.00%");
+    }
+
+    #[test]
+    fn test_format_apy_five_percent() {
+        assert_eq!(format_apy(0.05), "5.00%");
+    }
+
+    #[test]
+    fn test_format_apy_small_fraction() {
+        assert_eq!(format_apy(0.0012), "0.12%");
+    }
+
+    #[test]
+    fn test_format_apy_large_value() {
+        assert_eq!(format_apy(1.5), "150.00%");
+    }
+
+    #[test]
+    fn test_format_apy_precise_decimal() {
+        // 0.12345 * 100 = 12.345, rounds to 12.35
+        assert_eq!(format_apy(0.12345), "12.35%");
+    }
+
+    // format_usd tests
+    #[test]
+    fn test_format_usd_none() {
+        assert_eq!(format_usd(None), "-");
+    }
+
+    #[test]
+    fn test_format_usd_small_value() {
+        assert_eq!(format_usd(Some(123.45)), "$123.45");
+    }
+
+    #[test]
+    fn test_format_usd_thousands() {
+        assert_eq!(format_usd(Some(1500.0)), "$1.50K");
+    }
+
+    #[test]
+    fn test_format_usd_exact_thousand() {
+        assert_eq!(format_usd(Some(1000.0)), "$1.00K");
+    }
+
+    #[test]
+    fn test_format_usd_millions() {
+        assert_eq!(format_usd(Some(2_500_000.0)), "$2.50M");
+    }
+
+    #[test]
+    fn test_format_usd_exact_million() {
+        assert_eq!(format_usd(Some(1_000_000.0)), "$1.00M");
+    }
+
+    #[test]
+    fn test_format_usd_zero() {
+        assert_eq!(format_usd(Some(0.0)), "$0.00");
+    }
+}

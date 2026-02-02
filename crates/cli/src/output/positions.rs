@@ -101,3 +101,74 @@ pub fn format_user_positions(positions: &UserVaultPositions) -> String {
         table
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // truncate_address tests (same function as table.rs but tested here for coverage)
+    #[test]
+    fn test_truncate_address_long() {
+        let addr = "0x1234567890abcdef1234567890abcdef12345678";
+        assert_eq!(truncate_address(addr), "0x1234...5678");
+    }
+
+    #[test]
+    fn test_truncate_address_short() {
+        let addr = "0x1234";
+        assert_eq!(truncate_address(addr), "0x1234");
+    }
+
+    // truncate_name tests
+    #[test]
+    fn test_truncate_name_under_limit() {
+        assert_eq!(truncate_name("Short Name", 20), "Short Name");
+    }
+
+    #[test]
+    fn test_truncate_name_over_limit() {
+        assert_eq!(truncate_name("This is a very long name", 20), "This is a very lo...");
+    }
+
+    // format_usd tests for negative values
+    #[test]
+    fn test_format_usd_negative_small() {
+        assert_eq!(format_usd(Some(-50.0)), "-$50.00");
+    }
+
+    #[test]
+    fn test_format_usd_negative_thousands() {
+        assert_eq!(format_usd(Some(-1500.0)), "-$1.50K");
+    }
+
+    #[test]
+    fn test_format_usd_negative_millions() {
+        assert_eq!(format_usd(Some(-2_500_000.0)), "-$2.50M");
+    }
+
+    // format_usd tests for positive values
+    #[test]
+    fn test_format_usd_none() {
+        assert_eq!(format_usd(None), "-");
+    }
+
+    #[test]
+    fn test_format_usd_small_value() {
+        assert_eq!(format_usd(Some(123.45)), "$123.45");
+    }
+
+    #[test]
+    fn test_format_usd_thousands() {
+        assert_eq!(format_usd(Some(1500.0)), "$1.50K");
+    }
+
+    #[test]
+    fn test_format_usd_millions() {
+        assert_eq!(format_usd(Some(2_500_000.0)), "$2.50M");
+    }
+
+    #[test]
+    fn test_format_usd_zero() {
+        assert_eq!(format_usd(Some(0.0)), "$0.00");
+    }
+}

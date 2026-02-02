@@ -200,3 +200,362 @@ impl std::fmt::Display for ChainArg {
         write!(f, "{}", self.0.as_str())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    // ChainArg::FromStr tests - Ethereum aliases
+    #[test]
+    fn test_chain_arg_ethereum() {
+        let chain: ChainArg = "ethereum".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Mainnet);
+    }
+
+    #[test]
+    fn test_chain_arg_eth() {
+        let chain: ChainArg = "eth".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Mainnet);
+    }
+
+    #[test]
+    fn test_chain_arg_mainnet() {
+        let chain: ChainArg = "mainnet".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Mainnet);
+    }
+
+    #[test]
+    fn test_chain_arg_ethereum_by_id() {
+        let chain: ChainArg = "1".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Mainnet);
+    }
+
+    // ChainArg::FromStr tests - Base aliases
+    #[test]
+    fn test_chain_arg_base() {
+        let chain: ChainArg = "base".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Base);
+    }
+
+    #[test]
+    fn test_chain_arg_base_by_id() {
+        let chain: ChainArg = "8453".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Base);
+    }
+
+    // ChainArg::FromStr tests - Polygon aliases
+    #[test]
+    fn test_chain_arg_polygon() {
+        let chain: ChainArg = "polygon".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Polygon);
+    }
+
+    #[test]
+    fn test_chain_arg_matic() {
+        let chain: ChainArg = "matic".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Polygon);
+    }
+
+    #[test]
+    fn test_chain_arg_polygon_by_id() {
+        let chain: ChainArg = "137".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Polygon);
+    }
+
+    // ChainArg::FromStr tests - Arbitrum aliases
+    #[test]
+    fn test_chain_arg_arbitrum() {
+        let chain: ChainArg = "arbitrum".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Arbitrum);
+    }
+
+    #[test]
+    fn test_chain_arg_arb() {
+        let chain: ChainArg = "arb".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Arbitrum);
+    }
+
+    #[test]
+    fn test_chain_arg_arbitrum_by_id() {
+        let chain: ChainArg = "42161".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Arbitrum);
+    }
+
+    // ChainArg::FromStr tests - Optimism aliases
+    #[test]
+    fn test_chain_arg_optimism() {
+        let chain: ChainArg = "optimism".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Optimism);
+    }
+
+    #[test]
+    fn test_chain_arg_op() {
+        let chain: ChainArg = "op".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Optimism);
+    }
+
+    #[test]
+    fn test_chain_arg_optimism_by_id() {
+        let chain: ChainArg = "10".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Optimism);
+    }
+
+    // ChainArg::FromStr tests - Other chains
+    #[test]
+    fn test_chain_arg_worldchain() {
+        let chain: ChainArg = "worldchain".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::World);
+    }
+
+    #[test]
+    fn test_chain_arg_fraxtal() {
+        let chain: ChainArg = "fraxtal".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Fraxtal);
+    }
+
+    #[test]
+    fn test_chain_arg_scroll() {
+        let chain: ChainArg = "scroll".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Scroll);
+    }
+
+    #[test]
+    fn test_chain_arg_ink() {
+        let chain: ChainArg = "ink".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Ink);
+    }
+
+    #[test]
+    fn test_chain_arg_unichain() {
+        let chain: ChainArg = "unichain".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Unichain);
+    }
+
+    #[test]
+    fn test_chain_arg_sonic() {
+        let chain: ChainArg = "sonic".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Sonic);
+    }
+
+    #[test]
+    fn test_chain_arg_mode() {
+        let chain: ChainArg = "mode".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Mode);
+    }
+
+    #[test]
+    fn test_chain_arg_sepolia() {
+        let chain: ChainArg = "sepolia".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Sepolia);
+    }
+
+    // ChainArg::FromStr tests - Invalid and case sensitivity
+    #[test]
+    fn test_chain_arg_invalid() {
+        let result: Result<ChainArg, _> = "invalid_chain".parse();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Unknown chain"));
+    }
+
+    #[test]
+    fn test_chain_arg_case_insensitive_upper() {
+        let chain: ChainArg = "ETHEREUM".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Mainnet);
+    }
+
+    #[test]
+    fn test_chain_arg_case_insensitive_mixed() {
+        let chain: ChainArg = "EtHeReUm".parse().unwrap();
+        assert_eq!(chain.0, NamedChain::Mainnet);
+    }
+
+    // ChainArg Display test
+    #[test]
+    fn test_chain_arg_display() {
+        let chain = ChainArg(NamedChain::Mainnet);
+        assert_eq!(format!("{}", chain), "mainnet");
+    }
+
+    // CLI argument parsing tests
+    #[test]
+    fn test_cli_vaultv1_list_defaults() {
+        let cli = Cli::parse_from(["morpho", "vaultv1", "list"]);
+        match cli.command {
+            Commands::VaultV1 { subcommand: VaultV1Subcommand::List(args) } => {
+                assert_eq!(args.limit, 25);
+                assert!(args.chain.is_none());
+                assert!(args.curator.is_none());
+                assert!(!args.whitelisted);
+            }
+            _ => panic!("Expected VaultV1 List command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_vaultv1_list_with_chain() {
+        let cli = Cli::parse_from(["morpho", "vaultv1", "list", "--chain", "base"]);
+        match cli.command {
+            Commands::VaultV1 { subcommand: VaultV1Subcommand::List(args) } => {
+                assert!(args.chain.is_some());
+                assert_eq!(args.chain.unwrap().0, NamedChain::Base);
+            }
+            _ => panic!("Expected VaultV1 List command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_vaultv1_list_with_limit() {
+        let cli = Cli::parse_from(["morpho", "vaultv1", "list", "-n", "50"]);
+        match cli.command {
+            Commands::VaultV1 { subcommand: VaultV1Subcommand::List(args) } => {
+                assert_eq!(args.limit, 50);
+            }
+            _ => panic!("Expected VaultV1 List command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_vaultv1_list_with_curator() {
+        let cli = Cli::parse_from(["morpho", "vaultv1", "list", "--curator", "0x1234"]);
+        match cli.command {
+            Commands::VaultV1 { subcommand: VaultV1Subcommand::List(args) } => {
+                assert_eq!(args.curator, Some("0x1234".to_string()));
+            }
+            _ => panic!("Expected VaultV1 List command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_vaultv1_list_whitelisted() {
+        let cli = Cli::parse_from(["morpho", "vaultv1", "list", "--whitelisted"]);
+        match cli.command {
+            Commands::VaultV1 { subcommand: VaultV1Subcommand::List(args) } => {
+                assert!(args.whitelisted);
+            }
+            _ => panic!("Expected VaultV1 List command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_vaultv1_info() {
+        let cli = Cli::parse_from(["morpho", "vaultv1", "info", "0x1234567890abcdef"]);
+        match cli.command {
+            Commands::VaultV1 { subcommand: VaultV1Subcommand::Info(args) } => {
+                assert_eq!(args.address, "0x1234567890abcdef");
+                assert_eq!(args.chain.0, NamedChain::Mainnet); // default
+            }
+            _ => panic!("Expected VaultV1 Info command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_vaultv1_info_with_chain() {
+        let cli = Cli::parse_from(["morpho", "vaultv1", "info", "0x1234", "--chain", "polygon"]);
+        match cli.command {
+            Commands::VaultV1 { subcommand: VaultV1Subcommand::Info(args) } => {
+                assert_eq!(args.address, "0x1234");
+                assert_eq!(args.chain.0, NamedChain::Polygon);
+            }
+            _ => panic!("Expected VaultV1 Info command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_vaultv2_list() {
+        let cli = Cli::parse_from(["morpho", "vaultv2", "list"]);
+        match cli.command {
+            Commands::VaultV2 { subcommand: VaultV2Subcommand::List(args) } => {
+                assert_eq!(args.limit, 25);
+            }
+            _ => panic!("Expected VaultV2 List command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_positions() {
+        let cli = Cli::parse_from(["morpho", "positions", "0xuser1234"]);
+        match cli.command {
+            Commands::Positions(args) => {
+                assert_eq!(args.address, "0xuser1234");
+                assert!(args.chain.is_none());
+            }
+            _ => panic!("Expected Positions command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_positions_with_chain() {
+        let cli = Cli::parse_from(["morpho", "positions", "0xuser", "--chain", "arbitrum"]);
+        match cli.command {
+            Commands::Positions(args) => {
+                assert_eq!(args.address, "0xuser");
+                assert_eq!(args.chain.unwrap().0, NamedChain::Arbitrum);
+            }
+            _ => panic!("Expected Positions command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_output_format_table() {
+        let cli = Cli::parse_from(["morpho", "vaultv1", "list"]);
+        assert!(matches!(cli.format, OutputFormat::Table));
+    }
+
+    #[test]
+    fn test_cli_output_format_json() {
+        let cli = Cli::parse_from(["morpho", "--format", "json", "vaultv1", "list"]);
+        assert!(matches!(cli.format, OutputFormat::Json));
+    }
+
+    #[test]
+    fn test_cli_deposit_args() {
+        let cli = Cli::parse_from([
+            "morpho", "vaultv1", "deposit",
+            "0xvault", "100.5",
+            "--private-key", "0xprivkey",
+            "--rpc-url", "http://localhost:8545"
+        ]);
+        match cli.command {
+            Commands::VaultV1 { subcommand: VaultV1Subcommand::Deposit(args) } => {
+                assert_eq!(args.vault, "0xvault");
+                assert_eq!(args.amount, "100.5");
+                assert_eq!(args.private_key, "0xprivkey");
+                assert_eq!(args.rpc_url, "http://localhost:8545");
+            }
+            _ => panic!("Expected VaultV1 Deposit command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_withdraw_args() {
+        let cli = Cli::parse_from([
+            "morpho", "vaultv1", "withdraw",
+            "0xvault", "50.0",
+            "--private-key", "0xprivkey",
+            "--rpc-url", "http://localhost:8545"
+        ]);
+        match cli.command {
+            Commands::VaultV1 { subcommand: VaultV1Subcommand::Withdraw(args) } => {
+                assert_eq!(args.vault, "0xvault");
+                assert_eq!(args.amount, "50.0");
+                assert_eq!(args.private_key, "0xprivkey");
+                assert_eq!(args.rpc_url, "http://localhost:8545");
+            }
+            _ => panic!("Expected VaultV1 Withdraw command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_invalid_command() {
+        let result = Cli::try_parse_from(["morpho", "invalid"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_missing_required_arg() {
+        // positions requires address
+        let result = Cli::try_parse_from(["morpho", "positions"]);
+        assert!(result.is_err());
+    }
+}

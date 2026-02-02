@@ -158,3 +158,115 @@ fn format_gas(gas: u64) -> String {
     }
     result.chars().rev().collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // parse_amount tests with 18 decimals (ETH-like)
+    #[test]
+    fn test_parse_amount_integer() {
+        let result = parse_amount("100", 18).unwrap();
+        assert_eq!(result, U256::from(100_000_000_000_000_000_000u128));
+    }
+
+    #[test]
+    fn test_parse_amount_decimal() {
+        let result = parse_amount("100.5", 18).unwrap();
+        assert_eq!(result, U256::from(100_500_000_000_000_000_000u128));
+    }
+
+    #[test]
+    fn test_parse_amount_small_decimal() {
+        let result = parse_amount("0.001", 18).unwrap();
+        assert_eq!(result, U256::from(1_000_000_000_000_000u128));
+    }
+
+    // parse_amount tests with 6 decimals (USDC-like)
+    #[test]
+    fn test_parse_amount_6_decimals() {
+        let result = parse_amount("100", 6).unwrap();
+        assert_eq!(result, U256::from(100_000_000u128));
+    }
+
+    #[test]
+    fn test_parse_amount_6_decimals_with_fraction() {
+        let result = parse_amount("100.50", 6).unwrap();
+        assert_eq!(result, U256::from(100_500_000u128));
+    }
+
+    #[test]
+    fn test_parse_amount_truncates_excess_decimals() {
+        // If user provides more decimals than token supports, truncate
+        let result = parse_amount("1.123456789", 6).unwrap();
+        assert_eq!(result, U256::from(1_123_456u128));
+    }
+
+    #[test]
+    fn test_parse_amount_zero() {
+        let result = parse_amount("0", 18).unwrap();
+        assert_eq!(result, U256::ZERO);
+    }
+
+    #[test]
+    fn test_parse_amount_zero_decimal() {
+        let result = parse_amount("0.0", 18).unwrap();
+        assert_eq!(result, U256::ZERO);
+    }
+
+    #[test]
+    fn test_parse_amount_only_decimal() {
+        let result = parse_amount(".5", 18).unwrap();
+        assert_eq!(result, U256::from(500_000_000_000_000_000u128));
+    }
+
+    #[test]
+    fn test_parse_amount_leading_zeros() {
+        let result = parse_amount("001.5", 18).unwrap();
+        assert_eq!(result, U256::from(1_500_000_000_000_000_000u128));
+    }
+
+    #[test]
+    fn test_parse_amount_invalid_multiple_dots() {
+        let result = parse_amount("1.2.3", 18);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_amount_invalid_chars() {
+        let result = parse_amount("100abc", 18);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_amount_negative() {
+        let result = parse_amount("-100", 18);
+        assert!(result.is_err());
+    }
+
+    // format_gas tests
+    #[test]
+    fn test_format_gas_small() {
+        assert_eq!(format_gas(123), "123");
+    }
+
+    #[test]
+    fn test_format_gas_thousands() {
+        assert_eq!(format_gas(1234), "1,234");
+    }
+
+    #[test]
+    fn test_format_gas_millions() {
+        assert_eq!(format_gas(1234567), "1,234,567");
+    }
+
+    #[test]
+    fn test_format_gas_zero() {
+        assert_eq!(format_gas(0), "0");
+    }
+
+    #[test]
+    fn test_format_gas_large() {
+        assert_eq!(format_gas(21000), "21,000");
+    }
+}
