@@ -1,0 +1,10 @@
+{
+  "data": {
+    "userByAddress": {
+      "id": "user-empty",
+      "address": "0x0000000000000000000000000000000000000001",
+      "vaultPositions": [],
+      "vaultV2Positions": []
+    }
+  }
+}

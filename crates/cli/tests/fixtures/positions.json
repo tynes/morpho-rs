@@ -1,0 +1,49 @@
+{
+  "data": {
+    "userByAddress": {
+      "id": "user-1",
+      "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+      "vaultPositions": [
+        {
+          "id": "pos-v1-1",
+          "shares": "1000000000000",
+          "assets": "1000000000000",
+          "assetsUsd": 1000000.0,
+          "vault": {
+            "address": "0x8eB67A509616cd6A7c1B3c8C21D48FF57df3d458",
+            "name": "Steakhouse USDC",
+            "symbol": "steakUSDC",
+            "chain": { "id": 1 }
+          },
+          "state": {
+            "shares": "1000000000000",
+            "assets": "1000000000000",
+            "assetsUsd": 1000000.0,
+            "pnl": "50000000000",
+            "pnlUsd": 50000.0,
+            "roe": 0.05,
+            "roeUsd": 0.05
+          }
+        }
+      ],
+      "vaultV2Positions": [
+        {
+          "id": "pos-v2-1",
+          "shares": "500000000000",
+          "assets": "500000000000",
+          "assetsUsd": 500000.0,
+          "pnl": "25000000000",
+          "pnlUsd": 25000.0,
+          "roe": 0.05,
+          "roeUsd": 0.05,
+          "vault": {
+            "address": "0xABCdef1234567890ABCdef1234567890ABCdef12",
+            "name": "Test V2 USDC Vault",
+            "symbol": "tv2USDC",
+            "chain": { "id": 1 }
+          }
+        }
+      ]
+    }
+  }
+}

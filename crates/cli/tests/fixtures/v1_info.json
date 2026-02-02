@@ -1,0 +1,70 @@
+{
+  "data": {
+    "vaultByAddress": {
+      "id": "vault-v1-1",
+      "address": "0x8eB67A509616cd6A7c1B3c8C21D48FF57df3d458",
+      "name": "Steakhouse USDC",
+      "symbol": "steakUSDC",
+      "chain": { "id": 1, "network": "ETHEREUM" },
+      "listed": true,
+      "featured": false,
+      "whitelisted": true,
+      "asset": {
+        "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "symbol": "USDC",
+        "name": "USD Coin",
+        "decimals": 6,
+        "priceUsd": 1.0
+      },
+      "state": {
+        "curator": "0x1234567890123456789012345678901234567890",
+        "owner": "0x2345678901234567890123456789012345678901",
+        "guardian": "0x3456789012345678901234567890123456789012",
+        "totalAssets": "1000000000000",
+        "totalAssetsUsd": 1000000.0,
+        "totalSupply": "1000000000000",
+        "fee": 0.15,
+        "timelock": "86400",
+        "apy": 0.08,
+        "netApy": 0.068,
+        "sharePrice": "1000000",
+        "allocation": [
+          {
+            "supplyAssets": "500000000000",
+            "supplyAssetsUsd": 500000.0,
+            "supplyCap": "1000000000000",
+            "enabled": true,
+            "supplyQueueIndex": 0,
+            "withdrawQueueIndex": 0,
+            "market": {
+              "uniqueKey": "0x1234567890123456789012345678901234567890123456789012345678901234",
+              "lltv": "860000000000000000",
+              "loanAsset": {
+                "symbol": "USDC",
+                "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+              },
+              "collateralAsset": {
+                "symbol": "WETH",
+                "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+              },
+              "state": {
+                "timestamp": "1700000000",
+                "supplyAssets": "1000000000000",
+                "borrowAssets": "500000000000",
+                "supplyShares": "1000000000000000000000",
+                "borrowShares": "500000000000000000000",
+                "fee": 0.0,
+                "rateAtTarget": "100000000000000000",
+                "price": "3000000000"
+              }
+            }
+          }
+        ]
+      },
+      "allocators": [
+        { "address": "0xAllocator1234567890123456789012345678901" }
+      ],
+      "warnings": []
+    }
+  }
+}

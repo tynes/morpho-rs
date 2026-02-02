@@ -1,0 +1,10 @@
+{
+  "errors": [
+    {
+      "message": "Vault not found",
+      "locations": [{"line": 1, "column": 1}],
+      "path": ["vaultByAddress"]
+    }
+  ],
+  "data": null
+}

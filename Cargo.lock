@@ -2707,6 +2707,7 @@ dependencies = [
  "serde_json",
  "tabled",
  "tokio",
+ "wiremock",
 ]
 
 [[package]]

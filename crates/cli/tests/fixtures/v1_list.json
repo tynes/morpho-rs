@@ -1,0 +1,78 @@
+{
+  "data": {
+    "vaults": {
+      "items": [
+        {
+          "id": "vault-v1-1",
+          "address": "0x8eB67A509616cd6A7c1B3c8C21D48FF57df3d458",
+          "name": "Steakhouse USDC",
+          "symbol": "steakUSDC",
+          "chain": { "id": 1, "network": "ETHEREUM" },
+          "listed": true,
+          "featured": false,
+          "whitelisted": true,
+          "asset": {
+            "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "symbol": "USDC",
+            "name": "USD Coin",
+            "decimals": 6,
+            "priceUsd": 1.0
+          },
+          "state": {
+            "curator": "0x1234567890123456789012345678901234567890",
+            "owner": "0x2345678901234567890123456789012345678901",
+            "guardian": "0x3456789012345678901234567890123456789012",
+            "totalAssets": "1000000000000",
+            "totalAssetsUsd": 1000000.0,
+            "totalSupply": "1000000000000",
+            "fee": 0.15,
+            "timelock": "86400",
+            "apy": 0.08,
+            "netApy": 0.068,
+            "sharePrice": "1000000",
+            "allocation": []
+          },
+          "allocators": [],
+          "warnings": []
+        },
+        {
+          "id": "vault-v1-2",
+          "address": "0x78Fc2c2eD1A4cDb5402365934aE5648aDAd094d0",
+          "name": "Gauntlet WETH Prime",
+          "symbol": "gtWETH",
+          "chain": { "id": 1, "network": "ETHEREUM" },
+          "listed": true,
+          "featured": true,
+          "whitelisted": true,
+          "asset": {
+            "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            "symbol": "WETH",
+            "name": "Wrapped Ether",
+            "decimals": 18,
+            "priceUsd": 3000.0
+          },
+          "state": {
+            "curator": "0x4567890123456789012345678901234567890123",
+            "owner": "0x5678901234567890123456789012345678901234",
+            "guardian": "0x6789012345678901234567890123456789012345",
+            "totalAssets": "500000000000000000000",
+            "totalAssetsUsd": 1500000.0,
+            "totalSupply": "500000000000000000000",
+            "fee": 0.1,
+            "timelock": "172800",
+            "apy": 0.05,
+            "netApy": 0.045,
+            "sharePrice": "1000000000000000000",
+            "allocation": []
+          },
+          "allocators": [],
+          "warnings": []
+        }
+      ],
+      "pageInfo": {
+        "count": 2,
+        "countTotal": 2
+      }
+    }
+  }
+}
