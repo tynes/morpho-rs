@@ -14,6 +14,10 @@ pub struct Cli {
     #[arg(long, global = true, default_value = "table")]
     pub format: OutputFormat,
 
+    /// Morpho API URL (can also use MORPHO_API_URL env var)
+    #[arg(long, global = true, env = "MORPHO_API_URL")]
+    pub api_url: Option<String>,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -557,5 +561,30 @@ mod tests {
         // positions requires address
         let result = Cli::try_parse_from(["morpho", "positions"]);
         assert!(result.is_err());
+    }
+
+    // API URL global argument tests
+    #[test]
+    fn test_cli_api_url_default_none() {
+        let cli = Cli::parse_from(["morpho", "vaultv1", "list"]);
+        assert!(cli.api_url.is_none());
+    }
+
+    #[test]
+    fn test_cli_api_url_flag() {
+        let cli = Cli::parse_from(["morpho", "--api-url", "http://custom-api.test", "vaultv1", "list"]);
+        assert_eq!(cli.api_url, Some("http://custom-api.test".to_string()));
+    }
+
+    #[test]
+    fn test_cli_api_url_with_other_globals() {
+        let cli = Cli::parse_from([
+            "morpho",
+            "--api-url", "http://test.api",
+            "--format", "json",
+            "vaultv2", "list"
+        ]);
+        assert_eq!(cli.api_url, Some("http://test.api".to_string()));
+        assert!(matches!(cli.format, OutputFormat::Json));
     }
 }

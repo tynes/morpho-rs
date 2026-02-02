@@ -16,14 +16,15 @@ use commands::{
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
+    let api_url = cli.api_url.as_deref();
 
     match cli.command {
         Commands::VaultV1 { subcommand } => match subcommand {
             VaultV1Subcommand::List(args) => {
-                run_v1_list(&args, cli.format).await?;
+                run_v1_list(&args, cli.format, api_url).await?;
             }
             VaultV1Subcommand::Info(args) => {
-                run_v1_info(&args, cli.format).await?;
+                run_v1_info(&args, cli.format, api_url).await?;
             }
             VaultV1Subcommand::Deposit(args) => {
                 run_v1_deposit(&args).await?;
@@ -34,10 +35,10 @@ async fn main() -> Result<()> {
         },
         Commands::VaultV2 { subcommand } => match subcommand {
             VaultV2Subcommand::List(args) => {
-                run_v2_list(&args, cli.format).await?;
+                run_v2_list(&args, cli.format, api_url).await?;
             }
             VaultV2Subcommand::Info(args) => {
-                run_v2_info(&args, cli.format).await?;
+                run_v2_info(&args, cli.format, api_url).await?;
             }
             VaultV2Subcommand::Deposit(args) => {
                 run_v2_deposit(&args).await?;
@@ -47,7 +48,7 @@ async fn main() -> Result<()> {
             }
         },
         Commands::Positions(args) => {
-            run_positions(&args, cli.format).await?;
+            run_positions(&args, cli.format, api_url).await?;
         }
     }
 

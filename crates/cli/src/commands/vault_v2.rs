@@ -7,7 +7,27 @@ use morpho_rs_api::{ClientConfig, VaultV2, VaultV2Client};
 use crate::cli::{InfoArgs, ListArgs, OutputFormat};
 use crate::output::{format_v2_vault_detail, format_v2_vaults_table};
 
-pub async fn run_v2_list(args: &ListArgs, format: OutputFormat) -> Result<()> {
+/// Create a ClientConfig with a custom page size and optional API URL.
+fn client_config_with_page_size(page_size: i64, api_url: Option<&str>) -> Result<ClientConfig> {
+    let config = ClientConfig::new().with_page_size(page_size);
+    if let Some(url) = api_url {
+        Ok(config.with_api_url(url.parse()?))
+    } else {
+        Ok(config)
+    }
+}
+
+/// Create a default ClientConfig with optional API URL.
+fn client_config(api_url: Option<&str>) -> Result<ClientConfig> {
+    let config = ClientConfig::new();
+    if let Some(url) = api_url {
+        Ok(config.with_api_url(url.parse()?))
+    } else {
+        Ok(config)
+    }
+}
+
+pub async fn run_v2_list(args: &ListArgs, format: OutputFormat, api_url: Option<&str>) -> Result<()> {
     // Use larger page size when client-side filtering is needed (e.g., curator filter)
     // to ensure we have enough results after filtering
     let page_size = if args.curator.is_some() {
@@ -15,7 +35,7 @@ pub async fn run_v2_list(args: &ListArgs, format: OutputFormat) -> Result<()> {
     } else {
         args.limit as i64
     };
-    let config = ClientConfig::new().with_page_size(page_size);
+    let config = client_config_with_page_size(page_size, api_url)?;
     let client = VaultV2Client::with_config(config);
 
     let vaults = if args.whitelisted {
@@ -61,8 +81,9 @@ pub async fn run_v2_list(args: &ListArgs, format: OutputFormat) -> Result<()> {
     Ok(())
 }
 
-pub async fn run_v2_info(args: &InfoArgs, format: OutputFormat) -> Result<()> {
-    let client = VaultV2Client::new();
+pub async fn run_v2_info(args: &InfoArgs, format: OutputFormat, api_url: Option<&str>) -> Result<()> {
+    let config = client_config(api_url)?;
+    let client = VaultV2Client::with_config(config);
     let chain: NamedChain = args.chain.0;
 
     let vault = client.get_vault(&args.address, chain).await?;
