@@ -195,4 +195,91 @@ mod tests {
 
         assert_eq!(filters.chain_ids, Some(vec![1, 8453]));
     }
+
+    #[test]
+    fn test_filter_v1_to_gql_all_fields() {
+        let filters = VaultFiltersV1::new()
+            .chain(NamedChain::Mainnet)
+            .addresses(["0x1234567890123456789012345678901234567890"])
+            .listed(true)
+            .featured(false)
+            .curators(["0xCurator"])
+            .owners(["0xOwner"])
+            .asset_addresses(["0xAsset"])
+            .asset_symbols(["USDC", "WETH"])
+            .min_apy(0.01)
+            .max_apy(0.50)
+            .search("steakhouse");
+
+        let gql = filters.to_gql();
+
+        assert_eq!(gql.chain_id_in, Some(vec![1]));
+        assert_eq!(
+            gql.address_in,
+            Some(vec!["0x1234567890123456789012345678901234567890".to_string()])
+        );
+        assert_eq!(gql.listed, Some(true));
+        assert_eq!(gql.featured, Some(false));
+        assert_eq!(
+            gql.curator_address_in,
+            Some(vec!["0xCurator".to_string()])
+        );
+        assert_eq!(gql.owner_address_in, Some(vec!["0xOwner".to_string()]));
+        assert_eq!(gql.asset_address_in, Some(vec!["0xAsset".to_string()]));
+        assert_eq!(
+            gql.asset_symbol_in,
+            Some(vec!["USDC".to_string(), "WETH".to_string()])
+        );
+        assert_eq!(gql.apy_gte, Some(0.01));
+        assert_eq!(gql.apy_lte, Some(0.50));
+        assert_eq!(gql.search, Some("steakhouse".to_string()));
+    }
+
+    #[test]
+    fn test_filter_v1_apy_range() {
+        let filters = VaultFiltersV1::new().min_apy(0.05).max_apy(0.15);
+
+        let gql = filters.to_gql();
+        assert_eq!(gql.apy_gte, Some(0.05));
+        assert_eq!(gql.apy_lte, Some(0.15));
+    }
+
+    #[test]
+    fn test_filter_v1_chain_conversion() {
+        let filters_mainnet = VaultFiltersV1::new().chain(NamedChain::Mainnet);
+        assert_eq!(filters_mainnet.chain_ids, Some(vec![1]));
+
+        let filters_base = VaultFiltersV1::new().chain(NamedChain::Base);
+        assert_eq!(filters_base.chain_ids, Some(vec![8453]));
+
+        let filters_arbitrum = VaultFiltersV1::new().chain(NamedChain::Arbitrum);
+        assert_eq!(filters_arbitrum.chain_ids, Some(vec![42161]));
+    }
+
+    #[test]
+    fn test_filter_v1_default() {
+        let filters = VaultFiltersV1::default();
+        assert!(filters.chain_ids.is_none());
+        assert!(filters.addresses.is_none());
+        assert!(filters.listed.is_none());
+        assert!(filters.featured.is_none());
+        assert!(filters.curator_addresses.is_none());
+        assert!(filters.owner_addresses.is_none());
+        assert!(filters.asset_addresses.is_none());
+        assert!(filters.asset_symbols.is_none());
+        assert!(filters.apy_gte.is_none());
+        assert!(filters.apy_lte.is_none());
+        assert!(filters.search.is_none());
+    }
+
+    #[test]
+    fn test_filter_v1_to_gql_empty() {
+        let filters = VaultFiltersV1::new();
+        let gql = filters.to_gql();
+
+        assert!(gql.chain_id_in.is_none());
+        assert!(gql.address_in.is_none());
+        assert!(gql.listed.is_none());
+        assert!(gql.featured.is_none());
+    }
 }

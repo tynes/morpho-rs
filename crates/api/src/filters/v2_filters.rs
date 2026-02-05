@@ -155,4 +155,90 @@ mod tests {
 
         assert_eq!(filters.chain_ids, Some(vec![1, 8453]));
     }
+
+    #[test]
+    fn test_filter_v2_to_gql_all_fields() {
+        let filters = VaultFiltersV2::new()
+            .chain(NamedChain::Mainnet)
+            .addresses(["0x1234567890123456789012345678901234567890"])
+            .listed(true)
+            .min_total_assets_usd(100_000.0)
+            .max_total_assets_usd(10_000_000.0)
+            .min_liquidity_usd(50_000.0)
+            .max_liquidity_usd(5_000_000.0)
+            .min_apy(0.01)
+            .max_apy(0.50);
+
+        let gql = filters.to_gql();
+
+        assert_eq!(gql.chain_id_in, Some(vec![1]));
+        assert_eq!(
+            gql.address_in,
+            Some(vec!["0x1234567890123456789012345678901234567890".to_string()])
+        );
+        assert_eq!(gql.listed, Some(true));
+        assert_eq!(gql.total_assets_usd_gte, Some(100_000.0));
+        assert_eq!(gql.total_assets_usd_lte, Some(10_000_000.0));
+        assert_eq!(gql.liquidity_usd_gte, Some(50_000.0));
+        assert_eq!(gql.liquidity_usd_lte, Some(5_000_000.0));
+        assert_eq!(gql.apy_gte, Some(0.01));
+        assert_eq!(gql.apy_lte, Some(0.50));
+    }
+
+    #[test]
+    fn test_filter_v2_usd_range_filters() {
+        let filters = VaultFiltersV2::new()
+            .min_total_assets_usd(1_000_000.0)
+            .max_total_assets_usd(50_000_000.0)
+            .min_liquidity_usd(100_000.0)
+            .max_liquidity_usd(10_000_000.0);
+
+        let gql = filters.to_gql();
+        assert_eq!(gql.total_assets_usd_gte, Some(1_000_000.0));
+        assert_eq!(gql.total_assets_usd_lte, Some(50_000_000.0));
+        assert_eq!(gql.liquidity_usd_gte, Some(100_000.0));
+        assert_eq!(gql.liquidity_usd_lte, Some(10_000_000.0));
+    }
+
+    #[test]
+    fn test_filter_v2_apy_range() {
+        let filters = VaultFiltersV2::new().min_apy(0.03).max_apy(0.12);
+
+        let gql = filters.to_gql();
+        assert_eq!(gql.apy_gte, Some(0.03));
+        assert_eq!(gql.apy_lte, Some(0.12));
+    }
+
+    #[test]
+    fn test_filter_v2_chain_conversion() {
+        let filters_mainnet = VaultFiltersV2::new().chain(NamedChain::Mainnet);
+        assert_eq!(filters_mainnet.chain_ids, Some(vec![1]));
+
+        let filters_base = VaultFiltersV2::new().chain(NamedChain::Base);
+        assert_eq!(filters_base.chain_ids, Some(vec![8453]));
+    }
+
+    #[test]
+    fn test_filter_v2_default() {
+        let filters = VaultFiltersV2::default();
+        assert!(filters.chain_ids.is_none());
+        assert!(filters.addresses.is_none());
+        assert!(filters.listed.is_none());
+        assert!(filters.total_assets_usd_gte.is_none());
+        assert!(filters.total_assets_usd_lte.is_none());
+        assert!(filters.liquidity_usd_gte.is_none());
+        assert!(filters.liquidity_usd_lte.is_none());
+        assert!(filters.apy_gte.is_none());
+        assert!(filters.apy_lte.is_none());
+    }
+
+    #[test]
+    fn test_filter_v2_to_gql_empty() {
+        let filters = VaultFiltersV2::new();
+        let gql = filters.to_gql();
+
+        assert!(gql.chain_id_in.is_none());
+        assert!(gql.address_in.is_none());
+        assert!(gql.listed.is_none());
+    }
 }

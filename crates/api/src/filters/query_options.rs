@@ -198,3 +198,147 @@ impl VaultQueryOptionsV2 {
         self.asset_addresses.is_some() || self.asset_symbols.is_some()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_chains::NamedChain;
+
+    // V1 Options Tests
+
+    #[test]
+    fn test_v1_options_default() {
+        let options = VaultQueryOptionsV1::default();
+        assert!(options.filters.is_none());
+        assert!(options.order_by.is_none());
+        assert!(options.order_direction.is_none());
+        assert!(options.limit.is_none());
+    }
+
+    #[test]
+    fn test_v1_options_builder() {
+        let options = VaultQueryOptionsV1::new()
+            .filters(VaultFiltersV1::new().chain(NamedChain::Mainnet))
+            .order_by(VaultOrderByV1::NetApy)
+            .order_direction(OrderDirection::Desc)
+            .limit(25);
+
+        assert!(options.filters.is_some());
+        assert_eq!(options.order_by, Some(VaultOrderByV1::NetApy));
+        assert_eq!(options.order_direction, Some(OrderDirection::Desc));
+        assert_eq!(options.limit, Some(25));
+    }
+
+    #[test]
+    fn test_v1_options_top_by_apy() {
+        let options = VaultQueryOptionsV1::top_by_apy(10);
+
+        assert_eq!(options.limit, Some(10));
+        assert_eq!(options.order_by, Some(VaultOrderByV1::NetApy));
+        assert_eq!(options.order_direction, Some(OrderDirection::Desc));
+        assert!(options.filters.is_none());
+    }
+
+    #[test]
+    fn test_v1_options_top_by_tvl() {
+        let options = VaultQueryOptionsV1::top_by_tvl(5);
+
+        assert_eq!(options.limit, Some(5));
+        assert_eq!(options.order_by, Some(VaultOrderByV1::TotalAssetsUsd));
+        assert_eq!(options.order_direction, Some(OrderDirection::Desc));
+    }
+
+    // V2 Options Tests
+
+    #[test]
+    fn test_v2_options_default() {
+        let options = VaultQueryOptionsV2::default();
+        assert!(options.filters.is_none());
+        assert!(options.order_by.is_none());
+        assert!(options.order_direction.is_none());
+        assert!(options.limit.is_none());
+        assert!(options.asset_addresses.is_none());
+        assert!(options.asset_symbols.is_none());
+    }
+
+    #[test]
+    fn test_v2_options_builder() {
+        let options = VaultQueryOptionsV2::new()
+            .filters(VaultFiltersV2::new().chain(NamedChain::Mainnet))
+            .order_by(VaultOrderByV2::NetApy)
+            .order_direction(OrderDirection::Desc)
+            .asset_symbols(["USDC", "WETH"])
+            .limit(25);
+
+        assert!(options.filters.is_some());
+        assert_eq!(options.order_by, Some(VaultOrderByV2::NetApy));
+        assert_eq!(options.order_direction, Some(OrderDirection::Desc));
+        assert_eq!(options.limit, Some(25));
+        assert_eq!(
+            options.asset_symbols,
+            Some(vec!["USDC".to_string(), "WETH".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_v2_options_has_asset_filter() {
+        let no_filter = VaultQueryOptionsV2::new();
+        assert!(!no_filter.has_asset_filter());
+
+        let with_symbols = VaultQueryOptionsV2::new().asset_symbols(["USDC"]);
+        assert!(with_symbols.has_asset_filter());
+
+        let with_addresses = VaultQueryOptionsV2::new()
+            .asset_addresses(["0x1234567890123456789012345678901234567890"]);
+        assert!(with_addresses.has_asset_filter());
+
+        let with_both = VaultQueryOptionsV2::new()
+            .asset_symbols(["USDC"])
+            .asset_addresses(["0x1234567890123456789012345678901234567890"]);
+        assert!(with_both.has_asset_filter());
+    }
+
+    #[test]
+    fn test_v2_options_top_by_apy() {
+        let options = VaultQueryOptionsV2::top_by_apy(10);
+
+        assert_eq!(options.limit, Some(10));
+        assert_eq!(options.order_by, Some(VaultOrderByV2::NetApy));
+        assert_eq!(options.order_direction, Some(OrderDirection::Desc));
+    }
+
+    #[test]
+    fn test_v2_options_top_by_tvl() {
+        let options = VaultQueryOptionsV2::top_by_tvl(5);
+
+        assert_eq!(options.limit, Some(5));
+        assert_eq!(options.order_by, Some(VaultOrderByV2::TotalAssetsUsd));
+        assert_eq!(options.order_direction, Some(OrderDirection::Desc));
+    }
+
+    #[test]
+    fn test_v2_options_top_by_liquidity() {
+        let options = VaultQueryOptionsV2::top_by_liquidity(15);
+
+        assert_eq!(options.limit, Some(15));
+        assert_eq!(options.order_by, Some(VaultOrderByV2::LiquidityUsd));
+        assert_eq!(options.order_direction, Some(OrderDirection::Desc));
+    }
+
+    #[test]
+    fn test_v2_options_asset_addresses() {
+        let options = VaultQueryOptionsV2::new()
+            .asset_addresses([
+                "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+                "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+            ]);
+
+        assert_eq!(
+            options.asset_addresses,
+            Some(vec![
+                "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48".to_string(),
+                "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".to_string(),
+            ])
+        );
+    }
+}

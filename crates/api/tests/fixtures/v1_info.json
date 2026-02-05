@@ -1,0 +1,37 @@
+{
+  "data": {
+    "vaultByAddress": {
+      "id": "vault-v1-1",
+      "address": "0x8eB67A509616cd6A7c1B3c8C21D48FF57df3d458",
+      "name": "Steakhouse USDC",
+      "symbol": "steakUSDC",
+      "chain": { "id": 1, "network": "ETHEREUM" },
+      "listed": true,
+      "featured": false,
+      "whitelisted": true,
+      "asset": {
+        "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "symbol": "USDC",
+        "name": "USD Coin",
+        "decimals": 6,
+        "priceUsd": 1.0
+      },
+      "state": {
+        "curator": "0x1234567890123456789012345678901234567890",
+        "owner": "0x2345678901234567890123456789012345678901",
+        "guardian": "0x3456789012345678901234567890123456789012",
+        "totalAssets": "1000000000000",
+        "totalAssetsUsd": 1000000.0,
+        "totalSupply": "1000000000000",
+        "fee": 0.15,
+        "timelock": "86400",
+        "apy": 0.08,
+        "netApy": 0.068,
+        "sharePrice": "1000000",
+        "allocation": []
+      },
+      "allocators": [],
+      "warnings": []
+    }
+  }
+}

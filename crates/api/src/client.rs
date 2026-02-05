@@ -1736,3 +1736,95 @@ fn convert_user_market_position(
     )
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fee_to_wad_zero() {
+        let result = fee_to_wad(0.0);
+        assert_eq!(result, U256::ZERO);
+    }
+
+    #[test]
+    fn test_fee_to_wad_ten_percent() {
+        // 10% fee = 0.1 -> 1e17 in WAD
+        let result = fee_to_wad(0.1);
+        let expected = U256::from(100_000_000_000_000_000u64); // 1e17
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_fee_to_wad_max() {
+        // 100% fee = 1.0 -> 1e18 in WAD
+        let result = fee_to_wad(1.0);
+        let expected = U256::from(1_000_000_000_000_000_000u64); // 1e18
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_fee_to_wad_fifteen_percent() {
+        // 15% fee = 0.15 -> 1.5e17 in WAD
+        let result = fee_to_wad(0.15);
+        let expected = U256::from(150_000_000_000_000_000u64); // 1.5e17
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_fee_to_wad_small_fee() {
+        // 0.1% fee = 0.001 -> 1e15 in WAD
+        let result = fee_to_wad(0.001);
+        let expected = U256::from(1_000_000_000_000_000u64); // 1e15
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_client_config_default() {
+        let config = ClientConfig::default();
+        assert_eq!(config.page_size, DEFAULT_PAGE_SIZE);
+        assert_eq!(config.api_url.as_str(), DEFAULT_API_URL);
+    }
+
+    #[test]
+    fn test_client_config_builder() {
+        let url = Url::parse("https://custom.api.com/graphql").unwrap();
+        let config = ClientConfig::new()
+            .with_api_url(url.clone())
+            .with_page_size(50);
+
+        assert_eq!(config.api_url, url);
+        assert_eq!(config.page_size, 50);
+    }
+
+    #[test]
+    fn test_morpho_client_config_default() {
+        let config = MorphoClientConfig::default();
+        assert!(config.api_config.is_none());
+        assert!(config.rpc_url.is_none());
+        assert!(config.private_key.is_none());
+        assert!(config.auto_approve);
+    }
+
+    #[test]
+    fn test_morpho_client_config_builder() {
+        let api_config = ClientConfig::new().with_page_size(50);
+        let config = MorphoClientConfig::new()
+            .with_api_config(api_config)
+            .with_rpc_url("https://eth.llamarpc.com")
+            .with_private_key("0xabcd")
+            .with_auto_approve(false);
+
+        assert!(config.api_config.is_some());
+        assert_eq!(config.rpc_url, Some("https://eth.llamarpc.com".to_string()));
+        assert_eq!(config.private_key, Some("0xabcd".to_string()));
+        assert!(!config.auto_approve);
+    }
+
+    #[test]
+    fn test_parse_yearly_supply() {
+        assert_eq!(parse_yearly_supply("1000.5"), Some(1000.5));
+        assert_eq!(parse_yearly_supply("0"), Some(0.0));
+        assert_eq!(parse_yearly_supply("invalid"), None);
+    }
+}
+
