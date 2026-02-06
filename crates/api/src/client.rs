@@ -1202,7 +1202,7 @@ use std::str::FromStr;
 
 /// Convert f64 fee (0.1 = 10%) to WAD-scaled U256.
 fn fee_to_wad(fee: f64) -> U256 {
-    let fee_wad = (fee * 1e18) as u128;
+    let fee_wad = (fee * 1e18).round() as u128;
     U256::from(fee_wad)
 }
 
@@ -1325,390 +1325,238 @@ impl_v1_vault_conversion!(
     get_vault_v1_by_address
 );
 
-fn convert_v2_vault(v: get_vaults_v2::GetVaultsV2VaultV2sItems) -> Option<VaultV2> {
-    let chain_id = v.chain.id;
-    let asset = &v.asset;
-
-    VaultV2::from_gql(
-        &v.address,
-        v.name,
-        v.symbol,
-        chain_id,
-        v.listed,
-        v.whitelisted,
-        Asset::from_gql(
-            &asset.address,
-            asset.symbol.clone(),
-            Some(asset.name.clone()),
-            asset.decimals,
-            asset.price_usd,
-        )?,
-        Some(v.curator.address.as_str()),
-        Some(v.owner.address.as_str()),
-        v.total_assets.as_deref().unwrap_or("0"),
-        v.total_assets_usd,
-        &v.total_supply,
-        Some(v.share_price),
-        Some(v.performance_fee),
-        Some(v.management_fee),
-        v.avg_apy,
-        v.avg_net_apy,
-        v.apy,
-        v.net_apy,
-        &v.liquidity,
-        v.liquidity_usd,
-        v.adapters
-            .items
-            .map(|items| {
-                items
-                    .into_iter()
-                    .filter_map(convert_v2_adapter)
-                    .collect()
-            })
-            .unwrap_or_default(),
-        v.rewards
-            .into_iter()
-            .filter_map(|r| {
-                VaultReward::from_gql(
-                    &r.asset.address,
-                    r.asset.symbol.clone(),
-                    r.supply_apr,
-                    parse_yearly_supply(&r.yearly_supply_tokens),
-                )
-            })
-            .collect(),
-        v.warnings
-            .into_iter()
-            .map(|w| VaultV2Warning {
-                warning_type: w.type_.clone(),
-                level: format!("{:?}", w.level),
-            })
-            .collect(),
-    )
-}
-
 /// Parse yearly supply tokens from string to f64.
 fn parse_yearly_supply(s: &str) -> Option<f64> {
     s.parse::<f64>().ok()
 }
 
-fn convert_v2_vault_single(
-    v: get_vault_v2_by_address::GetVaultV2ByAddressVaultV2ByAddress,
-) -> Option<VaultV2> {
-    let chain_id = v.chain.id;
-    let asset = &v.asset;
+/// Macro to generate V2 vault and adapter conversion functions for both query types.
+/// V2 uses query-specific type names (not fragment-spread types like V1), so we pass them explicitly.
+macro_rules! impl_v2_vault_conversion {
+    ($vault_fn:ident, $adapter_fn:ident, $vault_type:ty, $adapter_type:ty, $adapter_on_type:path) => {
+        #[allow(unreachable_patterns)]
+        fn $adapter_fn(a: $adapter_type) -> Option<VaultAdapter> {
+            use $adapter_on_type::*;
 
-    VaultV2::from_gql(
-        &v.address,
-        v.name,
-        v.symbol,
-        chain_id,
-        v.listed,
-        v.whitelisted,
-        Asset::from_gql(
-            &asset.address,
-            asset.symbol.clone(),
-            Some(asset.name.clone()),
-            asset.decimals,
-            asset.price_usd,
-        )?,
-        Some(v.curator.address.as_str()),
-        Some(v.owner.address.as_str()),
-        v.total_assets.as_deref().unwrap_or("0"),
-        v.total_assets_usd,
-        &v.total_supply,
-        Some(v.share_price),
-        Some(v.performance_fee),
-        Some(v.management_fee),
-        v.avg_apy,
-        v.avg_net_apy,
-        v.apy,
-        v.net_apy,
-        &v.liquidity,
-        v.liquidity_usd,
-        v.adapters
-            .items
-            .map(|items| {
-                items
+            let data = match &a.on {
+                MorphoMarketV1Adapter(adapter) => {
+                    let positions: Vec<MorphoMarketPosition> = adapter.positions.items.as_ref()
+                        .map(|items| {
+                            items.iter().filter_map(|pos| {
+                                let market_id = B256::from_str(&pos.market.unique_key).ok()?;
+                                let market_state = pos.market.state.as_ref().and_then(|ms| {
+                                    let lltv = parse_bigint(&pos.market.lltv)?;
+                                    let timestamp: u64 = ms.timestamp.0.parse().ok()?;
+                                    Some(MarketStateV2 {
+                                        id: market_id,
+                                        total_supply_assets: parse_bigint(&ms.supply_assets)?,
+                                        total_borrow_assets: parse_bigint(&ms.borrow_assets)?,
+                                        total_supply_shares: parse_bigint(&ms.supply_shares)?,
+                                        total_borrow_shares: parse_bigint(&ms.borrow_shares)?,
+                                        last_update: timestamp,
+                                        fee: fee_to_wad(ms.fee),
+                                        rate_at_target: ms.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
+                                        price: ms.price.as_ref().and_then(|p| parse_bigint(p)),
+                                        lltv,
+                                    })
+                                });
+                                Some(MorphoMarketPosition {
+                                    supply_assets: parse_bigint(&pos.supply_assets)?,
+                                    supply_shares: parse_bigint(&pos.supply_shares)?,
+                                    market_id,
+                                    market_state,
+                                })
+                            }).collect()
+                        })
+                        .unwrap_or_default();
+                    Some(VaultAdapterData::MorphoMarketV1 { positions })
+                }
+                MetaMorphoAdapter(adapter) => {
+                    let allocations: Vec<MetaMorphoAllocation> = adapter.meta_morpho.state.as_ref()
+                        .map(|state| {
+                            state.allocation.iter().filter_map(|alloc| {
+                                let market_id = B256::from_str(&alloc.market.unique_key).ok()?;
+                                let market_state = alloc.market.state.as_ref().and_then(|ms| {
+                                    let lltv = parse_bigint(&alloc.market.lltv)?;
+                                    let timestamp: u64 = ms.timestamp.0.parse().ok()?;
+                                    Some(MarketStateV2 {
+                                        id: market_id,
+                                        total_supply_assets: parse_bigint(&ms.supply_assets)?,
+                                        total_borrow_assets: parse_bigint(&ms.borrow_assets)?,
+                                        total_supply_shares: parse_bigint(&ms.supply_shares)?,
+                                        total_borrow_shares: parse_bigint(&ms.borrow_shares)?,
+                                        last_update: timestamp,
+                                        fee: fee_to_wad(ms.fee),
+                                        rate_at_target: ms.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
+                                        price: ms.price.as_ref().and_then(|p| parse_bigint(p)),
+                                        lltv,
+                                    })
+                                });
+                                Some(MetaMorphoAllocation {
+                                    supply_assets: parse_bigint(&alloc.supply_assets)?,
+                                    supply_cap: parse_bigint(&alloc.supply_cap)?,
+                                    enabled: alloc.enabled,
+                                    supply_queue_index: alloc.supply_queue_index.map(|i| i as i32),
+                                    withdraw_queue_index: alloc.withdraw_queue_index.map(|i| i as i32),
+                                    market_id,
+                                    market_state,
+                                })
+                            }).collect()
+                        })
+                        .unwrap_or_default();
+                    Some(VaultAdapterData::MetaMorpho { allocations })
+                }
+                _ => None,
+            };
+
+            VaultAdapter::from_gql(
+                a.id,
+                &a.address,
+                format!("{:?}", a.type_),
+                &a.assets,
+                a.assets_usd,
+                data,
+            )
+        }
+
+        fn $vault_fn(v: $vault_type) -> Option<VaultV2> {
+            let chain_id = v.chain.id;
+            let asset = &v.asset;
+
+            VaultV2::from_gql(
+                &v.address,
+                v.name,
+                v.symbol,
+                chain_id,
+                v.listed,
+                v.whitelisted,
+                Asset::from_gql(
+                    &asset.address,
+                    asset.symbol.clone(),
+                    Some(asset.name.clone()),
+                    asset.decimals,
+                    asset.price_usd,
+                )?,
+                Some(v.curator.address.as_str()),
+                Some(v.owner.address.as_str()),
+                v.total_assets.as_deref().unwrap_or("0"),
+                v.total_assets_usd,
+                &v.total_supply,
+                Some(v.share_price),
+                Some(v.performance_fee),
+                Some(v.management_fee),
+                v.avg_apy,
+                v.avg_net_apy,
+                v.apy,
+                v.net_apy,
+                &v.liquidity,
+                v.liquidity_usd,
+                v.adapters
+                    .items
+                    .map(|items| {
+                        items
+                            .into_iter()
+                            .filter_map($adapter_fn)
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                v.rewards
                     .into_iter()
-                    .filter_map(convert_v2_adapter_single)
-                    .collect()
-            })
-            .unwrap_or_default(),
-        v.rewards
-            .into_iter()
-            .filter_map(|r| {
-                VaultReward::from_gql(
-                    &r.asset.address,
-                    r.asset.symbol.clone(),
-                    r.supply_apr,
-                    parse_yearly_supply(&r.yearly_supply_tokens),
-                )
-            })
-            .collect(),
-        v.warnings
-            .into_iter()
-            .map(|w| VaultV2Warning {
-                warning_type: w.type_.clone(),
-                level: format!("{:?}", w.level),
-            })
-            .collect(),
-    )
-}
-
-#[allow(unreachable_patterns)]
-fn convert_v2_adapter(
-    a: get_vaults_v2::GetVaultsV2VaultV2sItemsAdaptersItems,
-) -> Option<VaultAdapter> {
-    use get_vaults_v2::GetVaultsV2VaultV2sItemsAdaptersItemsOn::*;
-
-    // The `on` field contains the inline fragment enum
-    let data = match &a.on {
-        MorphoMarketV1Adapter(adapter) => {
-            let positions: Vec<MorphoMarketPosition> = adapter.positions.items.as_ref()
-                .map(|items| {
-                    items.iter().filter_map(|pos| {
-                        let market_id = B256::from_str(&pos.market.unique_key).ok()?;
-                        let market_state = pos.market.state.as_ref().and_then(|ms| {
-                            let lltv = parse_bigint(&pos.market.lltv)?;
-                            let timestamp: u64 = ms.timestamp.0.parse().ok()?;
-                            Some(MarketStateV2 {
-                                id: market_id,
-                                total_supply_assets: parse_bigint(&ms.supply_assets)?,
-                                total_borrow_assets: parse_bigint(&ms.borrow_assets)?,
-                                total_supply_shares: parse_bigint(&ms.supply_shares)?,
-                                total_borrow_shares: parse_bigint(&ms.borrow_shares)?,
-                                last_update: timestamp,
-                                fee: fee_to_wad(ms.fee),
-                                rate_at_target: ms.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
-                                price: ms.price.as_ref().and_then(|p| parse_bigint(p)),
-                                lltv,
-                            })
-                        });
-                        Some(MorphoMarketPosition {
-                            supply_assets: parse_bigint(&pos.supply_assets)?,
-                            supply_shares: parse_bigint(&pos.supply_shares)?,
-                            market_id,
-                            market_state,
-                        })
-                    }).collect()
-                })
-                .unwrap_or_default();
-            Some(VaultAdapterData::MorphoMarketV1 { positions })
+                    .filter_map(|r| {
+                        VaultReward::from_gql(
+                            &r.asset.address,
+                            r.asset.symbol.clone(),
+                            r.supply_apr,
+                            parse_yearly_supply(&r.yearly_supply_tokens),
+                        )
+                    })
+                    .collect(),
+                v.warnings
+                    .into_iter()
+                    .map(|w| VaultV2Warning {
+                        warning_type: w.type_.clone(),
+                        level: format!("{:?}", w.level),
+                    })
+                    .collect(),
+            )
         }
-        MetaMorphoAdapter(adapter) => {
-            let allocations: Vec<MetaMorphoAllocation> = adapter.meta_morpho.state.as_ref()
-                .map(|state| {
-                    state.allocation.iter().filter_map(|alloc| {
-                        let market_id = B256::from_str(&alloc.market.unique_key).ok()?;
-                        let market_state = alloc.market.state.as_ref().and_then(|ms| {
-                            let lltv = parse_bigint(&alloc.market.lltv)?;
-                            let timestamp: u64 = ms.timestamp.0.parse().ok()?;
-                            Some(MarketStateV2 {
-                                id: market_id,
-                                total_supply_assets: parse_bigint(&ms.supply_assets)?,
-                                total_borrow_assets: parse_bigint(&ms.borrow_assets)?,
-                                total_supply_shares: parse_bigint(&ms.supply_shares)?,
-                                total_borrow_shares: parse_bigint(&ms.borrow_shares)?,
-                                last_update: timestamp,
-                                fee: fee_to_wad(ms.fee),
-                                rate_at_target: ms.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
-                                price: ms.price.as_ref().and_then(|p| parse_bigint(p)),
-                                lltv,
-                            })
-                        });
-                        Some(MetaMorphoAllocation {
-                            supply_assets: parse_bigint(&alloc.supply_assets)?,
-                            supply_cap: parse_bigint(&alloc.supply_cap)?,
-                            enabled: alloc.enabled,
-                            supply_queue_index: alloc.supply_queue_index.map(|i| i as i32),
-                            withdraw_queue_index: alloc.withdraw_queue_index.map(|i| i as i32),
-                            market_id,
-                            market_state,
-                        })
-                    }).collect()
-                })
-                .unwrap_or_default();
-            Some(VaultAdapterData::MetaMorpho { allocations })
-        }
-        _ => None,
     };
-
-    VaultAdapter::from_gql(
-        a.id,
-        &a.address,
-        format!("{:?}", a.type_),
-        &a.assets,
-        a.assets_usd,
-        data,
-    )
 }
 
-#[allow(unreachable_patterns)]
-fn convert_v2_adapter_single(
-    a: get_vault_v2_by_address::GetVaultV2ByAddressVaultV2ByAddressAdaptersItems,
-) -> Option<VaultAdapter> {
-    use get_vault_v2_by_address::GetVaultV2ByAddressVaultV2ByAddressAdaptersItemsOn::*;
+impl_v2_vault_conversion!(
+    convert_v2_vault, convert_v2_adapter,
+    get_vaults_v2::GetVaultsV2VaultV2sItems,
+    get_vaults_v2::GetVaultsV2VaultV2sItemsAdaptersItems,
+    get_vaults_v2::GetVaultsV2VaultV2sItemsAdaptersItemsOn
+);
 
-    // The `on` field contains the inline fragment enum
-    let data = match &a.on {
-        MorphoMarketV1Adapter(adapter) => {
-            let positions: Vec<MorphoMarketPosition> = adapter.positions.items.as_ref()
-                .map(|items| {
-                    items.iter().filter_map(|pos| {
-                        let market_id = B256::from_str(&pos.market.unique_key).ok()?;
-                        let market_state = pos.market.state.as_ref().and_then(|ms| {
-                            let lltv = parse_bigint(&pos.market.lltv)?;
-                            let timestamp: u64 = ms.timestamp.0.parse().ok()?;
-                            Some(MarketStateV2 {
-                                id: market_id,
-                                total_supply_assets: parse_bigint(&ms.supply_assets)?,
-                                total_borrow_assets: parse_bigint(&ms.borrow_assets)?,
-                                total_supply_shares: parse_bigint(&ms.supply_shares)?,
-                                total_borrow_shares: parse_bigint(&ms.borrow_shares)?,
-                                last_update: timestamp,
-                                fee: fee_to_wad(ms.fee),
-                                rate_at_target: ms.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
-                                price: ms.price.as_ref().and_then(|p| parse_bigint(p)),
-                                lltv,
-                            })
-                        });
-                        Some(MorphoMarketPosition {
-                            supply_assets: parse_bigint(&pos.supply_assets)?,
-                            supply_shares: parse_bigint(&pos.supply_shares)?,
-                            market_id,
-                            market_state,
-                        })
-                    }).collect()
-                })
-                .unwrap_or_default();
-            Some(VaultAdapterData::MorphoMarketV1 { positions })
-        }
-        MetaMorphoAdapter(adapter) => {
-            let allocations: Vec<MetaMorphoAllocation> = adapter.meta_morpho.state.as_ref()
-                .map(|state| {
-                    state.allocation.iter().filter_map(|alloc| {
-                        let market_id = B256::from_str(&alloc.market.unique_key).ok()?;
-                        let market_state = alloc.market.state.as_ref().and_then(|ms| {
-                            let lltv = parse_bigint(&alloc.market.lltv)?;
-                            let timestamp: u64 = ms.timestamp.0.parse().ok()?;
-                            Some(MarketStateV2 {
-                                id: market_id,
-                                total_supply_assets: parse_bigint(&ms.supply_assets)?,
-                                total_borrow_assets: parse_bigint(&ms.borrow_assets)?,
-                                total_supply_shares: parse_bigint(&ms.supply_shares)?,
-                                total_borrow_shares: parse_bigint(&ms.borrow_shares)?,
-                                last_update: timestamp,
-                                fee: fee_to_wad(ms.fee),
-                                rate_at_target: ms.rate_at_target.as_ref().and_then(|r| parse_bigint(r)),
-                                price: ms.price.as_ref().and_then(|p| parse_bigint(p)),
-                                lltv,
-                            })
-                        });
-                        Some(MetaMorphoAllocation {
-                            supply_assets: parse_bigint(&alloc.supply_assets)?,
-                            supply_cap: parse_bigint(&alloc.supply_cap)?,
-                            enabled: alloc.enabled,
-                            supply_queue_index: alloc.supply_queue_index.map(|i| i as i32),
-                            withdraw_queue_index: alloc.withdraw_queue_index.map(|i| i as i32),
-                            market_id,
-                            market_state,
-                        })
-                    }).collect()
-                })
-                .unwrap_or_default();
-            Some(VaultAdapterData::MetaMorpho { allocations })
-        }
-        _ => None,
-    };
-
-    VaultAdapter::from_gql(
-        a.id,
-        &a.address,
-        format!("{:?}", a.type_),
-        &a.assets,
-        a.assets_usd,
-        data,
-    )
-}
+impl_v2_vault_conversion!(
+    convert_v2_vault_single, convert_v2_adapter_single,
+    get_vault_v2_by_address::GetVaultV2ByAddressVaultV2ByAddress,
+    get_vault_v2_by_address::GetVaultV2ByAddressVaultV2ByAddressAdaptersItems,
+    get_vault_v2_by_address::GetVaultV2ByAddressVaultV2ByAddressAdaptersItemsOn
+);
 
 // User position conversion functions
 
-fn convert_user_vault_v1_position(
-    p: get_user_vault_positions::GetUserVaultPositionsUserByAddressVaultPositions,
-) -> Option<UserVaultV1Position> {
-    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol, p.vault.chain.id)?;
+macro_rules! impl_user_v1_position_conversion {
+    ($fn_name:ident, $position_type:ty) => {
+        fn $fn_name(p: $position_type) -> Option<UserVaultV1Position> {
+            let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol, p.vault.chain.id)?;
 
-    let state = p.state.as_ref().and_then(|s| {
-        VaultPositionState::from_gql(
-            &s.shares,
-            s.assets.as_deref(),
-            s.assets_usd,
-            s.pnl.as_deref(),
-            s.pnl_usd,
-            s.roe,
-            s.roe_usd,
-        )
-    });
+            let state = p.state.as_ref().and_then(|s| {
+                VaultPositionState::from_gql(
+                    &s.shares,
+                    s.assets.as_deref(),
+                    s.assets_usd,
+                    s.pnl.as_deref(),
+                    s.pnl_usd,
+                    s.roe,
+                    s.roe_usd,
+                )
+            });
 
-    UserVaultV1Position::from_gql(p.id, &p.shares, &p.assets, p.assets_usd, vault, state)
+            UserVaultV1Position::from_gql(p.id, &p.shares, &p.assets, p.assets_usd, vault, state)
+        }
+    };
 }
 
-fn convert_user_vault_v2_position(
-    p: get_user_vault_positions::GetUserVaultPositionsUserByAddressVaultV2Positions,
-) -> Option<UserVaultV2Position> {
-    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol, p.vault.chain.id)?;
+macro_rules! impl_user_v2_position_conversion {
+    ($fn_name:ident, $position_type:ty) => {
+        fn $fn_name(p: $position_type) -> Option<UserVaultV2Position> {
+            let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol, p.vault.chain.id)?;
 
-    UserVaultV2Position::from_gql(
-        p.id,
-        &p.shares,
-        &p.assets,
-        p.assets_usd,
-        p.pnl.as_deref(),
-        p.pnl_usd,
-        p.roe,
-        p.roe_usd,
-        vault,
-    )
+            UserVaultV2Position::from_gql(
+                p.id,
+                &p.shares,
+                &p.assets,
+                p.assets_usd,
+                p.pnl.as_deref(),
+                p.pnl_usd,
+                p.roe,
+                p.roe_usd,
+                vault,
+            )
+        }
+    };
 }
 
-fn convert_user_vault_v1_position_overview(
-    p: get_user_account_overview::GetUserAccountOverviewUserByAddressVaultPositions,
-) -> Option<UserVaultV1Position> {
-    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol, p.vault.chain.id)?;
-
-    let state = p.state.as_ref().and_then(|s| {
-        VaultPositionState::from_gql(
-            &s.shares,
-            s.assets.as_deref(),
-            s.assets_usd,
-            s.pnl.as_deref(),
-            s.pnl_usd,
-            s.roe,
-            s.roe_usd,
-        )
-    });
-
-    UserVaultV1Position::from_gql(p.id, &p.shares, &p.assets, p.assets_usd, vault, state)
-}
-
-fn convert_user_vault_v2_position_overview(
-    p: get_user_account_overview::GetUserAccountOverviewUserByAddressVaultV2Positions,
-) -> Option<UserVaultV2Position> {
-    let vault = VaultInfo::from_gql(&p.vault.address, p.vault.name, p.vault.symbol, p.vault.chain.id)?;
-
-    UserVaultV2Position::from_gql(
-        p.id,
-        &p.shares,
-        &p.assets,
-        p.assets_usd,
-        p.pnl.as_deref(),
-        p.pnl_usd,
-        p.roe,
-        p.roe_usd,
-        vault,
-    )
-}
+impl_user_v1_position_conversion!(
+    convert_user_vault_v1_position,
+    get_user_vault_positions::GetUserVaultPositionsUserByAddressVaultPositions
+);
+impl_user_v1_position_conversion!(
+    convert_user_vault_v1_position_overview,
+    get_user_account_overview::GetUserAccountOverviewUserByAddressVaultPositions
+);
+impl_user_v2_position_conversion!(
+    convert_user_vault_v2_position,
+    get_user_vault_positions::GetUserVaultPositionsUserByAddressVaultV2Positions
+);
+impl_user_v2_position_conversion!(
+    convert_user_vault_v2_position_overview,
+    get_user_account_overview::GetUserAccountOverviewUserByAddressVaultV2Positions
+);
 
 fn convert_user_market_position(
     p: get_user_account_overview::GetUserAccountOverviewUserByAddressMarketPositions,
@@ -1775,6 +1623,24 @@ mod tests {
         // 0.1% fee = 0.001 -> 1e15 in WAD
         let result = fee_to_wad(0.001);
         let expected = U256::from(1_000_000_000_000_000u64); // 1e15
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_fee_to_wad_rounding_0021() {
+        // 0.21% fee = 0.0021 -> 2.1e15 in WAD
+        // Without .round(), 0.0021 * 1e18 = 2099999999999999.8, truncated to 2099999999999999
+        let result = fee_to_wad(0.0021);
+        let expected = U256::from(2_100_000_000_000_000u64);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_fee_to_wad_rounding_0045() {
+        // 0.45% fee = 0.0045 -> 4.5e15 in WAD
+        // Without .round(), 0.0045 * 1e18 = 4499999999999999.5, truncated to 4499999999999999
+        let result = fee_to_wad(0.0045);
+        let expected = U256::from(4_500_000_000_000_000u64);
         assert_eq!(result, expected);
     }
 
