@@ -28,16 +28,16 @@
 - [x] Fork tests for mint/redeem (verify share-based operations)
 - [x] Fork tests for approve_if_needed (skip when sufficient, approve when insufficient)
 
-## High Priority - Sim Crate Tests (0% coverage)
+## Completed - Sim Crate Tests (117 unit tests + 19 doc-tests)
 
-- [ ] Unit tests for Market operations (supply, borrow, withdraw, repay, accrue_interest)
-- [ ] Unit tests for APY calculations (get_supply_apy, get_borrow_apy, supply_apy_impact, borrow_apy_impact)
-- [ ] Unit tests for IRM (get_borrow_rate, w_exp, get_supply_for_borrow_rate, get_utilization_at_borrow_rate)
-- [ ] Unit tests for math utilities (wad_mul, wad_div, mul_div, RoundingDirection)
-- [ ] Unit tests for Position (health_factor, liquidation_price, capacities)
-- [ ] Unit tests for Vault simulation (deposit, withdraw, get_net_apy, reallocation)
-- [ ] Unit tests for optimization (rank_vaults_by_apy, find_best_vault_for_deposit, find_optimal_market_allocation)
-- [ ] Unit tests for public allocator (flow limits, ReallocationStep)
+- [x] Unit tests for Market operations (supply, borrow, withdraw, repay, accrue_interest)
+- [x] Unit tests for APY calculations (get_supply_apy, get_borrow_apy, supply_apy_impact, borrow_apy_impact)
+- [x] Unit tests for IRM (get_borrow_rate, w_exp, get_supply_for_borrow_rate, get_utilization_at_borrow_rate)
+- [x] Unit tests for math utilities (wad_mul, wad_div, mul_div, RoundingDirection)
+- [x] Unit tests for Position (health_factor, liquidation_price, capacities)
+- [x] Unit tests for Vault simulation (deposit, withdraw, get_net_apy, reallocation)
+- [x] Unit tests for optimization (rank_vaults_by_apy, find_best_vault_for_deposit, find_optimal_market_allocation)
+- [x] Unit tests for public allocator (flow limits, ReallocationStep)
 
 ## High Priority - Code Quality
 
@@ -48,15 +48,15 @@
 ## Medium Priority - API Improvements
 
 - [ ] No pagination for queries — only first page fetched, large results silently truncated
-- [ ] `MorphoApiClient.execute()` HTTP client coupling (`client.rs:774`) — uses `self.v1.http_client`
+- [x] `MorphoApiClient.execute()` HTTP client coupling (`client.rs:774`) — gave MorphoApiClient its own http_client and config fields
 - [ ] V2 curator filtering is client-side only (not in VaultV2Client API)
-- [ ] Unbounded concurrency in all-chains query (`client.rs:855`) — 25+ simultaneous requests via `join_all`
+- [x] Unbounded concurrency in all-chains query (`client.rs:855`) — limited to 5 concurrent requests via `buffer_unordered`
 - [ ] Retry/backoff for API requests — no resilience to transient failures
 
 ## Medium Priority - Code Quality
 
-- [ ] Fix unwrap in cli/commands/vault_v1.rs:37 (safe but could use if-let)
-- [ ] Audit remaining production unwrap calls
+- [x] Fix unwrap in cli/commands/vault_v1.rs:37 — replaced with if-let
+- [x] Audit remaining production unwrap calls — replaced all 13 `.unwrap()` in sim/vault.rs with proper `?` error propagation
 - [x] Consolidate V2 adapter conversion functions
 - [x] Reduce user position conversion duplication
 - [ ] Error type consolidation — ApiError, ContractError, SimError are fragmented

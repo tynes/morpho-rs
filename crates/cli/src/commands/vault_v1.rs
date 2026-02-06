@@ -32,9 +32,8 @@ pub async fn run_v1_list(args: &ListArgs, format: OutputFormat, api_url: Option<
     let config = client_config_with_page_size(args.limit as i64, api_url)?;
     let client = VaultV1Client::with_config(config);
 
-    let vaults = if args.curator.is_some() {
+    let vaults = if let Some(curator) = &args.curator {
         // Use curator filter
-        let curator = args.curator.as_ref().unwrap();
         let chain = args.chain.map(|c| c.0);
         client.get_vaults_by_curator(curator, chain).await?
     } else if args.whitelisted {

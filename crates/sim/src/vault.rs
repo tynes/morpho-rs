@@ -213,7 +213,10 @@ impl VaultSimulation {
             let new_supply_assets =
                 accrued_market.to_supply_assets(supply_shares, RoundingDirection::Down);
 
-            new_allocations.get_mut(market_id).unwrap().supply_assets = new_supply_assets;
+            new_allocations
+                .get_mut(market_id)
+                .ok_or(SimError::MarketNotFound { market_id: *market_id })?
+                .supply_assets = new_supply_assets;
             new_total_assets += new_supply_assets;
             new_markets.insert(*market_id, accrued_market);
         }
@@ -379,7 +382,8 @@ impl VaultSimulation {
             sim.markets.insert(*market_id, new_market);
 
             // Update allocation
-            let allocation = sim.vault.allocations.get_mut(market_id).unwrap();
+            let allocation = sim.vault.allocations.get_mut(market_id)
+                .ok_or(SimError::MarketNotFound { market_id: *market_id })?;
             allocation.supply_assets += supply_amount;
 
             to_supply -= supply_amount;
@@ -453,7 +457,8 @@ impl VaultSimulation {
             sim.markets.insert(*market_id, new_market);
 
             // Update allocation
-            let allocation = sim.vault.allocations.get_mut(market_id).unwrap();
+            let allocation = sim.vault.allocations.get_mut(market_id)
+                .ok_or(SimError::MarketNotFound { market_id: *market_id })?;
             allocation.supply_assets -= withdraw_amount;
 
             to_withdraw -= withdraw_amount;
@@ -521,11 +526,13 @@ impl VaultSimulation {
                     });
                 }
 
-                let market = sim.markets.get(&step.market_id).unwrap();
+                let market = sim.markets.get(&step.market_id)
+                    .ok_or(SimError::MarketNotFound { market_id: step.market_id })?;
                 let (new_market, _) = market.withdraw(to_withdraw, timestamp)?;
                 sim.markets.insert(step.market_id, new_market);
 
-                let allocation = sim.vault.allocations.get_mut(&step.market_id).unwrap();
+                let allocation = sim.vault.allocations.get_mut(&step.market_id)
+                    .ok_or(SimError::MarketNotFound { market_id: step.market_id })?;
                 allocation.supply_assets = step.target_assets;
 
                 total_withdrawn += to_withdraw;
@@ -548,11 +555,13 @@ impl VaultSimulation {
                     });
                 }
 
-                let market = sim.markets.get(&step.market_id).unwrap();
+                let market = sim.markets.get(&step.market_id)
+                    .ok_or(SimError::MarketNotFound { market_id: step.market_id })?;
                 let (new_market, _) = market.supply(to_supply, timestamp)?;
                 sim.markets.insert(step.market_id, new_market);
 
-                let allocation = sim.vault.allocations.get_mut(&step.market_id).unwrap();
+                let allocation = sim.vault.allocations.get_mut(&step.market_id)
+                    .ok_or(SimError::MarketNotFound { market_id: step.market_id })?;
                 allocation.supply_assets = step.target_assets;
 
                 total_supplied += to_supply;
@@ -687,20 +696,22 @@ impl VaultSimulation {
         let mut steps: Vec<ReallocationStep> = withdrawals
             .iter()
             .map(|(market_id, amount)| {
-                let current = sim.vault.allocations.get(market_id).unwrap().supply_assets;
-                ReallocationStep {
+                let current = sim.vault.allocations.get(market_id)
+                    .ok_or(SimError::MarketNotFound { market_id: *market_id })?
+                    .supply_assets;
+                Ok(ReallocationStep {
                     market_id: *market_id,
                     target_assets: current - *amount,
-                }
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>, SimError>>()?;
 
         // Add supply step
         let supply_current = sim
             .vault
             .allocations
             .get(&supply_market_id)
-            .unwrap()
+            .ok_or(SimError::MarketNotFound { market_id: supply_market_id })?
             .supply_assets;
         steps.push(ReallocationStep {
             market_id: supply_market_id,
@@ -709,14 +720,18 @@ impl VaultSimulation {
 
         // Update public allocator configs
         for (market_id, amount) in withdrawals {
-            let config = sim.vault.allocations.get_mut(market_id).unwrap();
-            let pa_config = config.public_allocator_config.as_mut().unwrap();
+            let config = sim.vault.allocations.get_mut(market_id)
+                .ok_or(SimError::MarketNotFound { market_id: *market_id })?;
+            let pa_config = config.public_allocator_config.as_mut()
+                .ok_or(SimError::PublicAllocatorNotConfigured { vault: sim.vault.address })?;
             pa_config.max_in += *amount;
             pa_config.max_out -= *amount;
         }
 
-        let supply_config = sim.vault.allocations.get_mut(&supply_market_id).unwrap();
-        let supply_pa_config = supply_config.public_allocator_config.as_mut().unwrap();
+        let supply_config = sim.vault.allocations.get_mut(&supply_market_id)
+            .ok_or(SimError::MarketNotFound { market_id: supply_market_id })?;
+        let supply_pa_config = supply_config.public_allocator_config.as_mut()
+            .ok_or(SimError::PublicAllocatorNotConfigured { vault: sim.vault.address })?;
         supply_pa_config.max_in -= total_withdrawn;
         supply_pa_config.max_out += total_withdrawn;
 

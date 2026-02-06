@@ -692,6 +692,10 @@ impl VaultV2Client {
 /// Combined client for querying both V1 and V2 vaults via the GraphQL API.
 #[derive(Debug, Clone)]
 pub struct MorphoApiClient {
+    /// Shared HTTP client for direct queries (user positions, account overview).
+    http_client: Client,
+    /// Shared configuration.
+    config: ClientConfig,
     /// V1 vault client.
     pub v1: VaultV1Client,
     /// V2 vault client.
@@ -708,6 +712,8 @@ impl MorphoApiClient {
     /// Create a new combined vault client with default configuration.
     pub fn new() -> Self {
         Self {
+            http_client: Client::new(),
+            config: ClientConfig::default(),
             v1: VaultV1Client::new(),
             v2: VaultV2Client::new(),
         }
@@ -716,6 +722,8 @@ impl MorphoApiClient {
     /// Create a new combined vault client with custom configuration.
     pub fn with_config(config: ClientConfig) -> Self {
         Self {
+            http_client: Client::new(),
+            config: config.clone(),
             v1: VaultV1Client::with_config(config.clone()),
             v2: VaultV2Client::with_config(config),
         }
@@ -774,9 +782,8 @@ impl MorphoApiClient {
     async fn execute<Q: GraphQLQuery>(&self, variables: Q::Variables) -> Result<Q::ResponseData> {
         let request_body = Q::build_query(variables);
         let response = self
-            .v1
             .http_client
-            .post(self.v1.config.api_url.as_str())
+            .post(self.config.api_url.as_str())
             .json(&request_body)
             .send()
             .await?;
@@ -851,12 +858,15 @@ impl MorphoApiClient {
         })
     }
 
+    /// Maximum number of concurrent chain queries.
+    const MAX_CONCURRENT_CHAIN_QUERIES: usize = 5;
+
     /// Get vault positions for a user across all chains.
     async fn get_user_vault_positions_all_chains(
         &self,
         address: &str,
     ) -> Result<UserVaultPositions> {
-        use futures::future::join_all;
+        use futures::stream::{self, StreamExt};
 
         // Filter chains to those with IDs that fit in GraphQL Int (32-bit signed)
         let valid_chains: Vec<_> = SUPPORTED_CHAINS
@@ -865,12 +875,12 @@ impl MorphoApiClient {
             .copied()
             .collect();
 
-        let futures: Vec<_> = valid_chains
-            .iter()
-            .map(|chain| self.get_user_vault_positions_single_chain(address, *chain))
-            .collect();
-
-        let results = join_all(futures).await;
+        let results: Vec<_> = stream::iter(valid_chains.iter().map(|chain| {
+            self.get_user_vault_positions_single_chain(address, *chain)
+        }))
+        .buffer_unordered(Self::MAX_CONCURRENT_CHAIN_QUERIES)
+        .collect()
+        .await;
 
         let parsed_address = address
             .parse()
