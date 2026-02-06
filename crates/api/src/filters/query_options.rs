@@ -111,6 +111,8 @@ pub struct VaultQueryOptionsV2 {
     pub asset_addresses: Option<Vec<String>>,
     /// Asset symbols to filter by (client-side, API doesn't support this).
     pub asset_symbols: Option<Vec<String>>,
+    /// Curator addresses to filter by (client-side, API doesn't support this).
+    pub curator_addresses: Option<Vec<String>>,
 }
 
 impl VaultQueryOptionsV2 {
@@ -169,6 +171,19 @@ impl VaultQueryOptionsV2 {
         self
     }
 
+    /// Filter by curator addresses (client-side).
+    ///
+    /// Note: The Morpho V2 API doesn't support curator filtering server-side,
+    /// so this filtering is done client-side after fetching results.
+    pub fn curator_addresses<I, S>(mut self, addresses: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.curator_addresses = Some(addresses.into_iter().map(Into::into).collect());
+        self
+    }
+
     /// Create options for fetching top vaults by APY.
     pub fn top_by_apy(limit: i64) -> Self {
         Self::new()
@@ -193,9 +208,17 @@ impl VaultQueryOptionsV2 {
             .limit(limit)
     }
 
+    /// Check if any client-side filtering is configured.
+    pub fn has_client_filter(&self) -> bool {
+        self.asset_addresses.is_some()
+            || self.asset_symbols.is_some()
+            || self.curator_addresses.is_some()
+    }
+
     /// Check if any client-side asset filtering is configured.
+    #[deprecated(note = "use has_client_filter() instead")]
     pub fn has_asset_filter(&self) -> bool {
-        self.asset_addresses.is_some() || self.asset_symbols.is_some()
+        self.has_client_filter()
     }
 }
 
@@ -259,6 +282,7 @@ mod tests {
         assert!(options.limit.is_none());
         assert!(options.asset_addresses.is_none());
         assert!(options.asset_symbols.is_none());
+        assert!(options.curator_addresses.is_none());
     }
 
     #[test]
@@ -281,21 +305,26 @@ mod tests {
     }
 
     #[test]
-    fn test_v2_options_has_asset_filter() {
+    fn test_v2_options_has_client_filter() {
         let no_filter = VaultQueryOptionsV2::new();
-        assert!(!no_filter.has_asset_filter());
+        assert!(!no_filter.has_client_filter());
 
         let with_symbols = VaultQueryOptionsV2::new().asset_symbols(["USDC"]);
-        assert!(with_symbols.has_asset_filter());
+        assert!(with_symbols.has_client_filter());
 
         let with_addresses = VaultQueryOptionsV2::new()
             .asset_addresses(["0x1234567890123456789012345678901234567890"]);
-        assert!(with_addresses.has_asset_filter());
+        assert!(with_addresses.has_client_filter());
 
-        let with_both = VaultQueryOptionsV2::new()
+        let with_curators = VaultQueryOptionsV2::new()
+            .curator_addresses(["0x1234567890123456789012345678901234567890"]);
+        assert!(with_curators.has_client_filter());
+
+        let with_all = VaultQueryOptionsV2::new()
             .asset_symbols(["USDC"])
-            .asset_addresses(["0x1234567890123456789012345678901234567890"]);
-        assert!(with_both.has_asset_filter());
+            .asset_addresses(["0x1234567890123456789012345678901234567890"])
+            .curator_addresses(["0xCurator"]);
+        assert!(with_all.has_client_filter());
     }
 
     #[test]
@@ -323,6 +352,17 @@ mod tests {
         assert_eq!(options.limit, Some(15));
         assert_eq!(options.order_by, Some(VaultOrderByV2::LiquidityUsd));
         assert_eq!(options.order_direction, Some(OrderDirection::Desc));
+    }
+
+    #[test]
+    fn test_v2_options_curator_addresses() {
+        let options = VaultQueryOptionsV2::new()
+            .curator_addresses(["0xCurator123456789012345678901234567890123"]);
+
+        assert_eq!(
+            options.curator_addresses,
+            Some(vec!["0xCurator123456789012345678901234567890123".to_string()])
+        );
     }
 
     #[test]

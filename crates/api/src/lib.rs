@@ -33,6 +33,14 @@
 //!     Ok(())
 //! }
 //! ```
+//!
+//! # Feature Flags
+//!
+//! - **`sim`** — Enables simulation support via the `morpho-rs-sim` crate. When enabled,
+//!   [`VaultV1`] and [`VaultV2`] gain a [`to_vault_simulation()`](VaultV1::to_vault_simulation)
+//!   method that converts API response data into a [`morpho_rs_sim::VaultSimulation`] for
+//!   computing projected APY and simulating deposits/withdrawals. Also adds the
+//!   [`ApiError::Simulation`] variant for propagating simulation errors.
 
 pub mod client;
 pub mod error;

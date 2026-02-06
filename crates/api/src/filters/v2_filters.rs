@@ -5,6 +5,33 @@ use alloy_chains::NamedChain;
 use crate::queries::v2::get_vaults_v2::VaultV2sFilters;
 
 /// Builder for V2 vault query filters.
+///
+/// Filters are applied server-side by the Morpho GraphQL API. Use the builder
+/// methods to chain multiple filter criteria.
+///
+/// Note: The V2 API does not support server-side asset or curator filtering.
+/// For those, use [`VaultQueryOptionsV2::asset_symbols`](crate::VaultQueryOptionsV2::asset_symbols),
+/// [`VaultQueryOptionsV2::asset_addresses`](crate::VaultQueryOptionsV2::asset_addresses),
+/// or [`VaultQueryOptionsV2::curator_addresses`](crate::VaultQueryOptionsV2::curator_addresses)
+/// which apply client-side filtering.
+///
+/// # Examples
+///
+/// ```
+/// use morpho_rs_api::{VaultFiltersV2, NamedChain};
+///
+/// // Filter for listed Ethereum vaults with at least $1M TVL
+/// let filters = VaultFiltersV2::new()
+///     .chain(NamedChain::Mainnet)
+///     .listed(true)
+///     .min_total_assets_usd(1_000_000.0);
+///
+/// // Filter by APY range and liquidity
+/// let filters = VaultFiltersV2::new()
+///     .min_apy(0.03)
+///     .max_apy(0.15)
+///     .min_liquidity_usd(100_000.0);
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct VaultFiltersV2 {
     /// Filter by chain IDs.

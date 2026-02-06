@@ -174,7 +174,12 @@ pub struct VaultV2Warning {
 }
 
 impl VaultV2 {
-    /// Create a VaultV2 from GraphQL response data.
+    /// Convert GraphQL response fields into a [`VaultV2`].
+    ///
+    /// Parses hex string fields (`address`, `curator`, `owner`) into their typed
+    /// representations and bigint strings (`total_assets`, `total_supply`, `liquidity`)
+    /// into [`U256`]. Returns `None` if the address is invalid or the chain ID is
+    /// unsupported.
     #[allow(clippy::too_many_arguments)]
     pub fn from_gql(
         address: &str,
@@ -232,7 +237,11 @@ impl VaultV2 {
 }
 
 impl VaultAdapter {
-    /// Create a VaultAdapter from GraphQL response data.
+    /// Convert GraphQL response fields into a [`VaultAdapter`].
+    ///
+    /// Parses the hex `address` string into an [`Address`] and the `assets` bigint
+    /// string into [`U256`] (defaulting to zero on parse failure). Returns `None`
+    /// if the address is invalid.
     pub fn from_gql(
         id: String,
         address: &str,
@@ -253,7 +262,10 @@ impl VaultAdapter {
 }
 
 impl VaultReward {
-    /// Create a VaultReward from GraphQL response data.
+    /// Convert GraphQL response fields into a [`VaultReward`].
+    ///
+    /// Parses the hex `asset_address` string into an [`Address`]. Returns `None`
+    /// if the address is invalid.
     pub fn from_gql(
         asset_address: &str,
         asset_symbol: String,
@@ -346,13 +358,18 @@ mod sim_conversion {
     use std::collections::HashMap;
 
     impl VaultV2 {
-        /// Convert this vault to a VaultSimulation for APY and deposit/withdrawal calculations.
+        /// Convert this vault to a [`VaultSimulation`] for APY and deposit/withdrawal calculations.
         ///
         /// This method extracts allocation data from MetaMorpho adapters. V2 vaults may have
         /// multiple adapter types; only MetaMorpho adapters contain the queue-based allocation
-        /// structure needed for simulation.
+        /// structure needed for simulation. The vault's performance fee is converted from the
+        /// API's fractional representation (e.g., 0.1 = 10%) to WAD-scaled (0.1 * 1e18).
         ///
         /// Returns `None` if no MetaMorpho adapter with valid allocation data is found.
+        ///
+        /// # Feature Flag
+        ///
+        /// This method is only available when the `sim` feature is enabled.
         ///
         /// # Example
         ///

@@ -194,7 +194,10 @@ pub struct UserAccountOverview {
 }
 
 impl VaultInfo {
-    /// Create a VaultInfo from GraphQL response data.
+    /// Convert GraphQL response fields into a [`VaultInfo`].
+    ///
+    /// Parses the hex `address` string into an [`Address`]. Returns `None` if the
+    /// address is invalid or the chain ID is unsupported.
     pub fn from_gql(address: &str, name: String, symbol: String, chain_id: i64) -> Option<Self> {
         Some(VaultInfo {
             address: parse_address(address)?,
@@ -206,7 +209,10 @@ impl VaultInfo {
 }
 
 impl VaultPositionState {
-    /// Create a VaultPositionState from GraphQL response data.
+    /// Convert GraphQL response fields into a [`VaultPositionState`].
+    ///
+    /// Parses bigint strings (`shares`, `assets`, `pnl`) into [`U256`]. Returns
+    /// `None` if the required `shares` field cannot be parsed.
     pub fn from_gql(
         shares: &str,
         assets: Option<&str>,
@@ -229,7 +235,10 @@ impl VaultPositionState {
 }
 
 impl UserVaultV1Position {
-    /// Create a UserVaultV1Position from GraphQL response data.
+    /// Convert GraphQL response fields into a [`UserVaultV1Position`].
+    ///
+    /// Parses bigint strings (`shares`, `assets`) into [`U256`]. Returns `None`
+    /// if any required bigint field cannot be parsed.
     pub fn from_gql(
         id: String,
         shares: &str,
@@ -250,7 +259,10 @@ impl UserVaultV1Position {
 }
 
 impl UserVaultV2Position {
-    /// Create a UserVaultV2Position from GraphQL response data.
+    /// Convert GraphQL response fields into a [`UserVaultV2Position`].
+    ///
+    /// Parses bigint strings (`shares`, `assets`, `pnl`) into [`U256`]. Returns
+    /// `None` if any required bigint field cannot be parsed.
     #[allow(clippy::too_many_arguments)]
     pub fn from_gql(
         id: String,
@@ -278,7 +290,11 @@ impl UserVaultV2Position {
 }
 
 impl MarketInfo {
-    /// Create a MarketInfo from GraphQL response data.
+    /// Convert GraphQL response fields into a [`MarketInfo`].
+    ///
+    /// Parses optional hex address strings into [`Address`]. Unlike other `from_gql`
+    /// methods, this always succeeds (returns `Self` rather than `Option<Self>`)
+    /// since all address fields are optional.
     pub fn from_gql(
         unique_key: String,
         loan_asset_symbol: Option<String>,
@@ -297,7 +313,11 @@ impl MarketInfo {
 }
 
 impl UserMarketPosition {
-    /// Create a UserMarketPosition from GraphQL response data.
+    /// Convert GraphQL response fields into a [`UserMarketPosition`].
+    ///
+    /// Parses bigint strings (`supply_shares`, `supply_assets`, `borrow_shares`,
+    /// `borrow_assets`, `collateral`) into [`U256`]. Returns `None` if any required
+    /// bigint field cannot be parsed.
     #[allow(clippy::too_many_arguments)]
     pub fn from_gql(
         id: String,
@@ -329,7 +349,10 @@ impl UserMarketPosition {
 }
 
 impl UserState {
-    /// Create a UserState from GraphQL response data.
+    /// Convert GraphQL response fields into a [`UserState`].
+    ///
+    /// All fields are `f64` USD values that map directly from the GraphQL response.
+    /// This always succeeds since all fields are plain numeric types.
     #[allow(clippy::too_many_arguments)]
     pub fn from_gql(
         vaults_pnl_usd: f64,

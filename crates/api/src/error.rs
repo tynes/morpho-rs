@@ -33,10 +33,79 @@ pub enum ApiError {
     #[error("Contract error: {0}")]
     Contract(#[from] morpho_rs_contracts::ContractError),
 
+    /// Simulation error.
+    #[cfg(feature = "sim")]
+    #[error("Simulation error: {0}")]
+    Simulation(#[from] morpho_rs_sim::SimError),
+
     /// Transaction support not configured.
     #[error("Transaction support not configured: RPC URL and private key required")]
     TransactionNotConfigured,
 }
 
+impl ApiError {
+    /// Returns `true` if the error is retryable (transient network errors).
+    pub fn is_retryable(&self) -> bool {
+        matches!(self, ApiError::Request(_))
+    }
+}
+
 /// Result type alias for API operations.
 pub type Result<T> = std::result::Result<T, ApiError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_retryable_request_error() {
+        // reqwest errors are retryable (transient network issues)
+        let err = reqwest::Client::builder()
+            .build()
+            .unwrap()
+            .get("http://invalid url with spaces")
+            .build()
+            .unwrap_err();
+        let api_err = ApiError::Request(err);
+        assert!(api_err.is_retryable());
+    }
+
+    #[test]
+    fn test_is_retryable_graphql_error() {
+        let err = ApiError::GraphQL("some error".to_string());
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn test_is_retryable_parse_error() {
+        let err = ApiError::Parse("bad data".to_string());
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn test_is_retryable_vault_not_found() {
+        let err = ApiError::VaultNotFound {
+            address: "0x123".to_string(),
+            chain_id: 1,
+        };
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn test_is_retryable_invalid_address() {
+        let err = ApiError::InvalidAddress("bad".to_string());
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn test_is_retryable_invalid_chain_id() {
+        let err = ApiError::InvalidChainId(999);
+        assert!(!err.is_retryable());
+    }
+
+    #[test]
+    fn test_is_retryable_transaction_not_configured() {
+        let err = ApiError::TransactionNotConfigured;
+        assert!(!err.is_retryable());
+    }
+}

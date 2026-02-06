@@ -5,6 +5,30 @@ use alloy_chains::NamedChain;
 use crate::queries::v1::get_vaults_v1::VaultFilters;
 
 /// Builder for V1 vault query filters.
+///
+/// Filters are applied server-side by the Morpho GraphQL API. Use the builder
+/// methods to chain multiple filter criteria.
+///
+/// # Examples
+///
+/// ```
+/// use morpho_rs_api::{VaultFiltersV1, NamedChain};
+///
+/// // Filter for listed Ethereum vaults with at least 5% APY
+/// let filters = VaultFiltersV1::new()
+///     .chain(NamedChain::Mainnet)
+///     .listed(true)
+///     .min_apy(0.05);
+///
+/// // Filter by multiple chains and asset
+/// let filters = VaultFiltersV1::new()
+///     .chains([NamedChain::Mainnet, NamedChain::Base])
+///     .asset_symbols(["USDC", "WETH"]);
+///
+/// // Filter by curator
+/// let filters = VaultFiltersV1::new()
+///     .curators(["0x1234567890123456789012345678901234567890"]);
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct VaultFiltersV1 {
     /// Filter by chain IDs.

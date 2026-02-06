@@ -60,18 +60,21 @@ macro_rules! define_vault_client_core {
         impl $client_name {
             /// Create a new vault client with default configuration.
             pub fn new() -> Self {
-                Self {
-                    http_client: Client::new(),
-                    config: ClientConfig::default(),
-                }
+                let config = ClientConfig::default();
+                let http_client = Client::builder()
+                    .timeout(std::time::Duration::from_secs(config.request_timeout_secs))
+                    .build()
+                    .expect("Failed to build HTTP client");
+                Self { http_client, config }
             }
 
             /// Create a new vault client with custom configuration.
             pub fn with_config(config: ClientConfig) -> Self {
-                Self {
-                    http_client: Client::new(),
-                    config,
-                }
+                let http_client = Client::builder()
+                    .timeout(std::time::Duration::from_secs(config.request_timeout_secs))
+                    .build()
+                    .expect("Failed to build HTTP client");
+                Self { http_client, config }
             }
 
             /// Get a reference to the HTTP client.
@@ -84,36 +87,72 @@ macro_rules! define_vault_client_core {
                 &self.config
             }
 
-            /// Execute a GraphQL query.
+            /// Execute a GraphQL query with retry/backoff for transient failures.
             async fn execute<Q: GraphQLQuery>(
                 &self,
                 variables: Q::Variables,
-            ) -> Result<Q::ResponseData> {
+            ) -> Result<Q::ResponseData>
+            where
+                Q::Variables: serde::Serialize,
+            {
                 let request_body = Q::build_query(variables);
-                let response = self
-                    .http_client
-                    .post(self.config.api_url.as_str())
-                    .json(&request_body)
-                    .send()
-                    .await?;
 
-                let response_body: Response<Q::ResponseData> = response.json().await?;
-
-                if let Some(errors) = response_body.errors {
-                    if !errors.is_empty() {
-                        return Err(ApiError::GraphQL(
-                            errors
-                                .iter()
-                                .map(|e| e.message.clone())
-                                .collect::<Vec<_>>()
-                                .join("; "),
-                        ));
+                for attempt in 0..=self.config.max_retries {
+                    if attempt > 0 {
+                        let delay = self.config.retry_base_delay_ms * 2u64.pow(attempt - 1);
+                        tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
                     }
+
+                    let send_result = self
+                        .http_client
+                        .post(self.config.api_url.as_str())
+                        .json(&request_body)
+                        .send()
+                        .await;
+
+                    let response = match send_result {
+                        Ok(resp) => resp,
+                        Err(e) => {
+                            let err = ApiError::Request(e);
+                            if err.is_retryable() && attempt < self.config.max_retries {
+                                continue;
+                            }
+                            return Err(err);
+                        }
+                    };
+
+                    let json_result: std::result::Result<Response<Q::ResponseData>, _> =
+                        response.json().await;
+
+                    let response_body = match json_result {
+                        Ok(body) => body,
+                        Err(e) => {
+                            let err = ApiError::Request(e);
+                            if err.is_retryable() && attempt < self.config.max_retries {
+                                continue;
+                            }
+                            return Err(err);
+                        }
+                    };
+
+                    if let Some(errors) = response_body.errors {
+                        if !errors.is_empty() {
+                            return Err(ApiError::GraphQL(
+                                errors
+                                    .iter()
+                                    .map(|e| e.message.clone())
+                                    .collect::<Vec<_>>()
+                                    .join("; "),
+                            ));
+                        }
+                    }
+
+                    return response_body
+                        .data
+                        .ok_or_else(|| ApiError::Parse("No data in response".to_string()));
                 }
 
-                response_body
-                    .data
-                    .ok_or_else(|| ApiError::Parse("No data in response".to_string()))
+                unreachable!("retry loop always returns")
             }
         }
     };
@@ -248,6 +287,9 @@ pub const DEFAULT_API_URL: &str = "https://api.morpho.org/graphql";
 /// Default page size for paginated queries.
 pub const DEFAULT_PAGE_SIZE: i64 = 100;
 
+/// Maximum number of pagination pages to prevent runaway loops.
+const MAX_PAGINATION_PAGES: usize = 50;
+
 /// Configuration for vault clients.
 #[derive(Debug, Clone)]
 pub struct ClientConfig {
@@ -255,6 +297,12 @@ pub struct ClientConfig {
     pub api_url: Url,
     /// Default page size for queries.
     pub page_size: i64,
+    /// Maximum number of retry attempts for transient failures.
+    pub max_retries: u32,
+    /// Base delay in milliseconds between retries (doubled each attempt).
+    pub retry_base_delay_ms: u64,
+    /// Request timeout in seconds.
+    pub request_timeout_secs: u64,
 }
 
 impl Default for ClientConfig {
@@ -262,6 +310,9 @@ impl Default for ClientConfig {
         Self {
             api_url: Url::parse(DEFAULT_API_URL).expect("Invalid default API URL"),
             page_size: DEFAULT_PAGE_SIZE,
+            max_retries: 3,
+            retry_base_delay_ms: 200,
+            request_timeout_secs: 30,
         }
     }
 }
@@ -283,6 +334,24 @@ impl ClientConfig {
         self.page_size = size;
         self
     }
+
+    /// Set the maximum number of retry attempts for transient failures.
+    pub fn with_max_retries(mut self, retries: u32) -> Self {
+        self.max_retries = retries;
+        self
+    }
+
+    /// Set the base delay in milliseconds between retries (doubled each attempt).
+    pub fn with_retry_base_delay_ms(mut self, delay_ms: u64) -> Self {
+        self.retry_base_delay_ms = delay_ms;
+        self
+    }
+
+    /// Set the request timeout in seconds.
+    pub fn with_request_timeout_secs(mut self, timeout_secs: u64) -> Self {
+        self.request_timeout_secs = timeout_secs;
+        self
+    }
 }
 
 // Generate VaultV1Client struct and core methods
@@ -292,29 +361,47 @@ define_vault_client_core! {
 }
 
 impl VaultV1Client {
-    /// Get V1 vaults with optional filters.
+    /// Get V1 vaults with optional filters, auto-paginating through all results.
     pub async fn get_vaults(&self, filters: Option<VaultFiltersV1>) -> Result<Vec<VaultV1>> {
-        let variables = get_vaults_v1::Variables {
-            first: Some(self.config.page_size),
-            skip: Some(0),
-            where_: filters.map(|f| f.to_gql()),
-            order_by: Some(VaultOrderByV1::default().to_gql()),
-            order_direction: Some(OrderDirection::default().to_gql_v1()),
-        };
+        let gql_filters = filters.as_ref().map(|f| f.to_gql());
+        let page_size = self.config.page_size;
+        let mut all_vaults = Vec::new();
+        let mut skip: i64 = 0;
 
-        let data = self.execute::<GetVaultsV1>(variables).await?;
+        for _ in 0..MAX_PAGINATION_PAGES {
+            let variables = get_vaults_v1::Variables {
+                first: Some(page_size),
+                skip: Some(skip),
+                where_: gql_filters.clone(),
+                order_by: Some(VaultOrderByV1::default().to_gql()),
+                order_direction: Some(OrderDirection::default().to_gql_v1()),
+            };
 
-        let items = match data.vaults.items {
-            Some(items) => items,
-            None => return Ok(Vec::new()),
-        };
+            let data = self.execute::<GetVaultsV1>(variables).await?;
 
-        let vaults: Vec<VaultV1> = items
-            .into_iter()
-            .filter_map(convert_v1_vault)
-            .collect();
+            let items = match data.vaults.items {
+                Some(items) => items,
+                None => break,
+            };
 
-        Ok(vaults)
+            let page_count = items.len() as i64;
+            let vaults: Vec<VaultV1> = items.into_iter().filter_map(convert_v1_vault).collect();
+            all_vaults.extend(vaults);
+
+            let count_total = data
+                .vaults
+                .page_info
+                .as_ref()
+                .map(|p| p.count_total)
+                .unwrap_or(0);
+
+            skip += page_count;
+            if page_count < page_size || skip >= count_total {
+                break;
+            }
+        }
+
+        Ok(all_vaults)
     }
 
     /// Get a single V1 vault by address and chain.
@@ -391,27 +478,56 @@ impl VaultV1Client {
         &self,
         options: VaultQueryOptionsV1,
     ) -> Result<Vec<VaultV1>> {
-        let variables = get_vaults_v1::Variables {
-            first: options.limit.or(Some(self.config.page_size)),
-            skip: Some(0),
-            where_: options.filters.map(|f| f.to_gql()),
-            order_by: Some(options.order_by.unwrap_or_default().to_gql()),
-            order_direction: Some(options.order_direction.unwrap_or_default().to_gql_v1()),
-        };
+        let gql_filters = options.filters.as_ref().map(|f| f.to_gql());
+        let order_by = Some(options.order_by.unwrap_or_default().to_gql());
+        let order_direction = Some(options.order_direction.unwrap_or_default().to_gql_v1());
+        let page_size = self.config.page_size;
+        let limit = options.limit;
+        let mut all_vaults = Vec::new();
+        let mut skip: i64 = 0;
 
-        let data = self.execute::<GetVaultsV1>(variables).await?;
+        for _ in 0..MAX_PAGINATION_PAGES {
+            let variables = get_vaults_v1::Variables {
+                first: Some(page_size),
+                skip: Some(skip),
+                where_: gql_filters.clone(),
+                order_by: order_by.clone(),
+                order_direction: order_direction.clone(),
+            };
 
-        let items = match data.vaults.items {
-            Some(items) => items,
-            None => return Ok(Vec::new()),
-        };
+            let data = self.execute::<GetVaultsV1>(variables).await?;
 
-        let vaults: Vec<VaultV1> = items
-            .into_iter()
-            .filter_map(convert_v1_vault)
-            .collect();
+            let items = match data.vaults.items {
+                Some(items) => items,
+                None => break,
+            };
 
-        Ok(vaults)
+            let page_count = items.len() as i64;
+            let vaults: Vec<VaultV1> = items.into_iter().filter_map(convert_v1_vault).collect();
+            all_vaults.extend(vaults);
+
+            // Respect user-specified limit
+            if let Some(lim) = limit {
+                if all_vaults.len() >= lim as usize {
+                    all_vaults.truncate(lim as usize);
+                    return Ok(all_vaults);
+                }
+            }
+
+            let count_total = data
+                .vaults
+                .page_info
+                .as_ref()
+                .map(|p| p.count_total)
+                .unwrap_or(0);
+
+            skip += page_count;
+            if page_count < page_size || skip >= count_total {
+                break;
+            }
+        }
+
+        Ok(all_vaults)
     }
 
     /// Get top N V1 vaults ordered by APY (highest first).
@@ -481,29 +597,47 @@ define_vault_client_core! {
 }
 
 impl VaultV2Client {
-    /// Get V2 vaults with optional filters.
+    /// Get V2 vaults with optional filters, auto-paginating through all results.
     pub async fn get_vaults(&self, filters: Option<VaultFiltersV2>) -> Result<Vec<VaultV2>> {
-        let variables = get_vaults_v2::Variables {
-            first: Some(self.config.page_size),
-            skip: Some(0),
-            where_: filters.map(|f| f.to_gql()),
-            order_by: Some(VaultOrderByV2::default().to_gql()),
-            order_direction: Some(OrderDirection::default().to_gql_v2()),
-        };
+        let gql_filters = filters.as_ref().map(|f| f.to_gql());
+        let page_size = self.config.page_size;
+        let mut all_vaults = Vec::new();
+        let mut skip: i64 = 0;
 
-        let data = self.execute::<GetVaultsV2>(variables).await?;
+        for _ in 0..MAX_PAGINATION_PAGES {
+            let variables = get_vaults_v2::Variables {
+                first: Some(page_size),
+                skip: Some(skip),
+                where_: gql_filters.clone(),
+                order_by: Some(VaultOrderByV2::default().to_gql()),
+                order_direction: Some(OrderDirection::default().to_gql_v2()),
+            };
 
-        let items = match data.vault_v2s.items {
-            Some(items) => items,
-            None => return Ok(Vec::new()),
-        };
+            let data = self.execute::<GetVaultsV2>(variables).await?;
 
-        let vaults: Vec<VaultV2> = items
-            .into_iter()
-            .filter_map(convert_v2_vault)
-            .collect();
+            let items = match data.vault_v2s.items {
+                Some(items) => items,
+                None => break,
+            };
 
-        Ok(vaults)
+            let page_count = items.len() as i64;
+            let vaults: Vec<VaultV2> = items.into_iter().filter_map(convert_v2_vault).collect();
+            all_vaults.extend(vaults);
+
+            let count_total = data
+                .vault_v2s
+                .page_info
+                .as_ref()
+                .map(|p| p.count_total)
+                .unwrap_or(0);
+
+            skip += page_count;
+            if page_count < page_size || skip >= count_total {
+                break;
+            }
+        }
+
+        Ok(all_vaults)
     }
 
     /// Get a single V2 vault by address and chain.
@@ -570,53 +704,89 @@ impl VaultV2Client {
         &self,
         options: VaultQueryOptionsV2,
     ) -> Result<Vec<VaultV2>> {
-        // When using client-side asset filtering, we may need to fetch more results
-        // to ensure we have enough after filtering
-        let fetch_limit = if options.has_asset_filter() {
-            // Fetch more if we're going to filter client-side
-            options.limit.map(|l| l * 3).or(Some(self.config.page_size))
-        } else {
-            options.limit.or(Some(self.config.page_size))
-        };
+        let gql_filters = options.filters.as_ref().map(|f| f.to_gql());
+        let order_by = Some(options.order_by.unwrap_or_default().to_gql());
+        let order_direction = Some(options.order_direction.unwrap_or_default().to_gql_v2());
+        let page_size = self.config.page_size;
+        let limit = options.limit;
+        let has_client_filter = options.has_client_filter();
+        let mut all_vaults = Vec::new();
+        let mut skip: i64 = 0;
 
-        let variables = get_vaults_v2::Variables {
-            first: fetch_limit,
-            skip: Some(0),
-            where_: options.filters.map(|f| f.to_gql()),
-            order_by: Some(options.order_by.unwrap_or_default().to_gql()),
-            order_direction: Some(options.order_direction.unwrap_or_default().to_gql_v2()),
-        };
+        for _ in 0..MAX_PAGINATION_PAGES {
+            let variables = get_vaults_v2::Variables {
+                first: Some(page_size),
+                skip: Some(skip),
+                where_: gql_filters.clone(),
+                order_by: order_by.clone(),
+                order_direction: order_direction.clone(),
+            };
 
-        let data = self.execute::<GetVaultsV2>(variables).await?;
+            let data = self.execute::<GetVaultsV2>(variables).await?;
 
-        let items = match data.vault_v2s.items {
-            Some(items) => items,
-            None => return Ok(Vec::new()),
-        };
+            let items = match data.vault_v2s.items {
+                Some(items) => items,
+                None => break,
+            };
 
-        let mut vaults: Vec<VaultV2> = items
-            .into_iter()
-            .filter_map(convert_v2_vault)
-            .collect();
+            let page_count = items.len() as i64;
+            let mut vaults: Vec<VaultV2> =
+                items.into_iter().filter_map(convert_v2_vault).collect();
 
-        // Apply client-side asset filtering
-        if let Some(ref symbols) = options.asset_symbols {
-            vaults.retain(|v| symbols.iter().any(|s| s.eq_ignore_ascii_case(&v.asset.symbol)));
+            // Apply client-side filtering to this page
+            if let Some(ref symbols) = options.asset_symbols {
+                vaults
+                    .retain(|v| symbols.iter().any(|s| s.eq_ignore_ascii_case(&v.asset.symbol)));
+            }
+            if let Some(ref addresses) = options.asset_addresses {
+                vaults.retain(|v| {
+                    addresses
+                        .iter()
+                        .any(|a| v.asset.address.to_string().eq_ignore_ascii_case(a))
+                });
+            }
+            if let Some(ref curators) = options.curator_addresses {
+                vaults.retain(|v| {
+                    v.curator
+                        .map(|c| {
+                            curators
+                                .iter()
+                                .any(|a| c.to_string().eq_ignore_ascii_case(a))
+                        })
+                        .unwrap_or(false)
+                });
+            }
+
+            all_vaults.extend(vaults);
+
+            // Respect user-specified limit
+            if let Some(lim) = limit {
+                if all_vaults.len() >= lim as usize {
+                    all_vaults.truncate(lim as usize);
+                    return Ok(all_vaults);
+                }
+            }
+
+            let count_total = data
+                .vault_v2s
+                .page_info
+                .as_ref()
+                .map(|p| p.count_total)
+                .unwrap_or(0);
+
+            skip += page_count;
+            if page_count < page_size || skip >= count_total {
+                break;
+            }
+
+            // When client-side filtering is active and we have a limit,
+            // keep paginating to find enough matching results
+            if has_client_filter && limit.is_some() {
+                continue;
+            }
         }
-        if let Some(ref addresses) = options.asset_addresses {
-            vaults.retain(|v| {
-                addresses
-                    .iter()
-                    .any(|a| v.asset.address.to_string().eq_ignore_ascii_case(a))
-            });
-        }
 
-        // Apply limit after client-side filtering
-        if let Some(limit) = options.limit {
-            vaults.truncate(limit as usize);
-        }
-
-        Ok(vaults)
+        Ok(all_vaults)
     }
 
     /// Get top N V2 vaults ordered by APY (highest first).
@@ -648,6 +818,27 @@ impl VaultV2Client {
             limit: Some(limit),
             asset_addresses: None,
             asset_symbols: None,
+            curator_addresses: None,
+        };
+        self.get_vaults_with_options(options).await
+    }
+
+    /// Get V2 vaults by curator address.
+    ///
+    /// Note: This filtering is done client-side since the Morpho V2 API
+    /// doesn't support server-side curator filtering.
+    pub async fn get_vaults_by_curator(
+        &self,
+        curator: &str,
+        chain: Option<NamedChain>,
+    ) -> Result<Vec<VaultV2>> {
+        let filters = chain.map(|c| VaultFiltersV2::new().chain(c));
+        let options = VaultQueryOptionsV2::new()
+            .curator_addresses([curator]);
+        let options = if let Some(f) = filters {
+            options.filters(f)
+        } else {
+            options
         };
         self.get_vaults_with_options(options).await
     }
@@ -684,6 +875,7 @@ impl VaultV2Client {
             limit: None,
             asset_addresses: None,
             asset_symbols: Some(vec![asset_symbol.to_string()]),
+            curator_addresses: None,
         };
         self.get_vaults_with_options(options).await
     }
@@ -711,9 +903,14 @@ impl Default for MorphoApiClient {
 impl MorphoApiClient {
     /// Create a new combined vault client with default configuration.
     pub fn new() -> Self {
+        let config = ClientConfig::default();
+        let http_client = Client::builder()
+            .timeout(std::time::Duration::from_secs(config.request_timeout_secs))
+            .build()
+            .expect("Failed to build HTTP client");
         Self {
-            http_client: Client::new(),
-            config: ClientConfig::default(),
+            http_client,
+            config,
             v1: VaultV1Client::new(),
             v2: VaultV2Client::new(),
         }
@@ -721,8 +918,12 @@ impl MorphoApiClient {
 
     /// Create a new combined vault client with custom configuration.
     pub fn with_config(config: ClientConfig) -> Self {
+        let http_client = Client::builder()
+            .timeout(std::time::Duration::from_secs(config.request_timeout_secs))
+            .build()
+            .expect("Failed to build HTTP client");
         Self {
-            http_client: Client::new(),
+            http_client,
             config: config.clone(),
             v1: VaultV1Client::with_config(config.clone()),
             v2: VaultV2Client::with_config(config),
@@ -778,33 +979,69 @@ impl MorphoApiClient {
         Ok(vaults)
     }
 
-    /// Execute a GraphQL query.
-    async fn execute<Q: GraphQLQuery>(&self, variables: Q::Variables) -> Result<Q::ResponseData> {
+    /// Execute a GraphQL query with retry/backoff for transient failures.
+    async fn execute<Q: GraphQLQuery>(&self, variables: Q::Variables) -> Result<Q::ResponseData>
+    where
+        Q::Variables: serde::Serialize,
+    {
         let request_body = Q::build_query(variables);
-        let response = self
-            .http_client
-            .post(self.config.api_url.as_str())
-            .json(&request_body)
-            .send()
-            .await?;
 
-        let response_body: Response<Q::ResponseData> = response.json().await?;
-
-        if let Some(errors) = response_body.errors {
-            if !errors.is_empty() {
-                return Err(ApiError::GraphQL(
-                    errors
-                        .iter()
-                        .map(|e| e.message.clone())
-                        .collect::<Vec<_>>()
-                        .join("; "),
-                ));
+        for attempt in 0..=self.config.max_retries {
+            if attempt > 0 {
+                let delay = self.config.retry_base_delay_ms * 2u64.pow(attempt - 1);
+                tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
             }
+
+            let send_result = self
+                .http_client
+                .post(self.config.api_url.as_str())
+                .json(&request_body)
+                .send()
+                .await;
+
+            let response = match send_result {
+                Ok(resp) => resp,
+                Err(e) => {
+                    let err = ApiError::Request(e);
+                    if err.is_retryable() && attempt < self.config.max_retries {
+                        continue;
+                    }
+                    return Err(err);
+                }
+            };
+
+            let json_result: std::result::Result<Response<Q::ResponseData>, _> =
+                response.json().await;
+
+            let response_body = match json_result {
+                Ok(body) => body,
+                Err(e) => {
+                    let err = ApiError::Request(e);
+                    if err.is_retryable() && attempt < self.config.max_retries {
+                        continue;
+                    }
+                    return Err(err);
+                }
+            };
+
+            if let Some(errors) = response_body.errors {
+                if !errors.is_empty() {
+                    return Err(ApiError::GraphQL(
+                        errors
+                            .iter()
+                            .map(|e| e.message.clone())
+                            .collect::<Vec<_>>()
+                            .join("; "),
+                    ));
+                }
+            }
+
+            return response_body
+                .data
+                .ok_or_else(|| ApiError::Parse("No data in response".to_string()));
         }
 
-        response_body
-            .data
-            .ok_or_else(|| ApiError::Parse("No data in response".to_string()))
+        unreachable!("retry loop always returns")
     }
 
     /// Get all vault positions (V1 and V2) for a user.

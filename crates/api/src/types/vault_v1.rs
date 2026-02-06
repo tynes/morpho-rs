@@ -138,7 +138,10 @@ pub struct VaultWarning {
 }
 
 impl VaultV1 {
-    /// Create a VaultV1 from GraphQL response data.
+    /// Convert GraphQL response fields into a [`VaultV1`].
+    ///
+    /// Parses hex string fields (`address`) into their typed representations.
+    /// Returns `None` if the address is invalid or the chain ID is unsupported.
     #[allow(clippy::too_many_arguments)]
     pub fn from_gql(
         address: &str,
@@ -170,7 +173,11 @@ impl VaultV1 {
 }
 
 impl VaultStateV1 {
-    /// Create a VaultStateV1 from GraphQL response data.
+    /// Convert GraphQL response fields into a [`VaultStateV1`].
+    ///
+    /// Parses bigint strings (`total_assets`, `total_supply`, `share_price`, `timelock`)
+    /// into [`U256`] and optional address strings into [`Address`]. Returns `None` if
+    /// any required bigint field cannot be parsed.
     #[allow(clippy::too_many_arguments)]
     pub fn from_gql(
         curator: Option<&str>,
@@ -204,7 +211,11 @@ impl VaultStateV1 {
 }
 
 impl VaultAllocation {
-    /// Create a VaultAllocation from GraphQL response data.
+    /// Convert GraphQL response fields into a [`VaultAllocation`].
+    ///
+    /// Parses bigint strings (`supply_assets`, `supply_cap`) into [`U256`] and optional
+    /// address strings into [`Address`]. Returns `None` if required bigint fields
+    /// cannot be parsed.
     #[allow(clippy::too_many_arguments)]
     pub fn from_gql(
         market_key: String,
@@ -238,7 +249,9 @@ impl VaultAllocation {
 }
 
 impl VaultAllocator {
-    /// Create a VaultAllocator from a GraphQL address string.
+    /// Convert a GraphQL address string into a [`VaultAllocator`].
+    ///
+    /// Returns `None` if the address is not a valid 20-byte hex string.
     pub fn from_gql(address: &str) -> Option<Self> {
         Some(VaultAllocator {
             address: parse_address(address)?,
@@ -337,9 +350,17 @@ mod sim_conversion {
     use std::collections::HashMap;
 
     impl VaultV1 {
-        /// Convert this vault to a VaultSimulation for APY and deposit/withdrawal calculations.
+        /// Convert this vault to a [`VaultSimulation`] for APY and deposit/withdrawal calculations.
+        ///
+        /// Builds the simulation from the vault's allocation data, constructing supply/withdraw
+        /// queues, market configurations, and market states. The vault's fee is converted from
+        /// the API's fractional representation (e.g., 0.1 = 10%) to WAD-scaled (0.1 * 1e18).
         ///
         /// Returns `None` if the vault has no state or if required market data is missing.
+        ///
+        /// # Feature Flag
+        ///
+        /// This method is only available when the `sim` feature is enabled.
         ///
         /// # Example
         ///

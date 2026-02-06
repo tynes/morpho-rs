@@ -185,6 +185,76 @@ async fn test_get_vaults_v2_client_side_address_filter() {
 }
 
 #[tokio::test]
+async fn test_get_vaults_v2_client_side_curator_filter() {
+    let server = start_mock_server().await;
+    mock_graphql_response(&server, "v2_list").await;
+
+    let config = client_config_with_mock(&server);
+    let client = VaultV2Client::with_config(config);
+
+    // Filter to only vaults with a specific curator (from fixture)
+    let options = VaultQueryOptionsV2::new()
+        .curator_addresses(["0xCA11ab1eCA11ab1eCA11ab1eCA11ab1eCA11ab1e"]);
+
+    let vaults = client.get_vaults_with_options(options).await.unwrap();
+
+    // Should filter to only the vault with matching curator
+    assert_eq!(vaults.len(), 1);
+    assert_eq!(vaults[0].name, "Test V2 USDC Vault");
+}
+
+#[tokio::test]
+async fn test_get_vaults_v2_client_side_curator_filter_case_insensitive() {
+    let server = start_mock_server().await;
+    mock_graphql_response(&server, "v2_list").await;
+
+    let config = client_config_with_mock(&server);
+    let client = VaultV2Client::with_config(config);
+
+    // Filter with different case
+    let options = VaultQueryOptionsV2::new()
+        .curator_addresses(["0xca11ab1eca11ab1eca11ab1eca11ab1eca11ab1e"]);
+
+    let vaults = client.get_vaults_with_options(options).await.unwrap();
+
+    assert_eq!(vaults.len(), 1);
+    assert_eq!(vaults[0].name, "Test V2 USDC Vault");
+}
+
+#[tokio::test]
+async fn test_get_vaults_v2_by_curator() {
+    let server = start_mock_server().await;
+    mock_graphql_response(&server, "v2_list").await;
+
+    let config = client_config_with_mock(&server);
+    let client = VaultV2Client::with_config(config);
+
+    let vaults = client
+        .get_vaults_by_curator("0xCA11ab1eCA11ab1eCA11ab1eCA11ab1eCA11ab1e", None)
+        .await
+        .unwrap();
+
+    assert_eq!(vaults.len(), 1);
+    assert_eq!(vaults[0].name, "Test V2 USDC Vault");
+}
+
+#[tokio::test]
+async fn test_get_vaults_v2_by_curator_no_match() {
+    let server = start_mock_server().await;
+    mock_graphql_response(&server, "v2_list").await;
+
+    let config = client_config_with_mock(&server);
+    let client = VaultV2Client::with_config(config);
+
+    let vaults = client
+        .get_vaults_by_curator("0x0000000000000000000000000000000000000000", None)
+        .await
+        .unwrap();
+
+    assert!(vaults.is_empty());
+}
+
+#[tokio::test]
 async fn test_get_top_vaults_v2_by_apy() {
     let server = start_mock_server().await;
     mock_graphql_response(&server, "v2_list").await;
@@ -258,16 +328,20 @@ async fn test_v2_options_top_by_liquidity() {
 }
 
 #[tokio::test]
-async fn test_v2_options_has_asset_filter() {
+async fn test_v2_options_has_client_filter() {
     let options_no_filter = VaultQueryOptionsV2::new();
-    assert!(!options_no_filter.has_asset_filter());
+    assert!(!options_no_filter.has_client_filter());
 
     let options_with_symbol = VaultQueryOptionsV2::new().asset_symbols(["USDC"]);
-    assert!(options_with_symbol.has_asset_filter());
+    assert!(options_with_symbol.has_client_filter());
 
     let options_with_address =
         VaultQueryOptionsV2::new().asset_addresses(["0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"]);
-    assert!(options_with_address.has_asset_filter());
+    assert!(options_with_address.has_client_filter());
+
+    let options_with_curator =
+        VaultQueryOptionsV2::new().curator_addresses(["0xCA11ab1eCA11ab1eCA11ab1eCA11ab1eCA11ab1e"]);
+    assert!(options_with_curator.has_client_filter());
 }
 
 #[tokio::test]

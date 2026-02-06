@@ -21,7 +21,11 @@ pub struct Asset {
 }
 
 impl Asset {
-    /// Create a new Asset from GraphQL response data.
+    /// Convert GraphQL response fields into an [`Asset`].
+    ///
+    /// Parses the hex `address` string into an [`Address`]. Returns `None` if the
+    /// address is not a valid 20-byte hex string. The `decimals` parameter is
+    /// truncated from `f64` to `u8` to match the GraphQL schema's numeric type.
     pub fn from_gql(
         address: &str,
         symbol: String,

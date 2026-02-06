@@ -17,8 +17,8 @@
             "decimals": 6,
             "priceUsd": 1.0
           },
-          "curator": { "address": "0xCurator123456789012345678901234567890123" },
-          "owner": { "address": "0xOwner12345678901234567890123456789012345" },
+          "curator": { "address": "0xCA11ab1eCA11ab1eCA11ab1eCA11ab1eCA11ab1e" },
+          "owner": { "address": "0x0B0B0B0B0B0B0B0B0B0B0B0B0B0B0B0B0B0B0B0B" },
           "totalAssets": "2000000000000",
           "totalAssetsUsd": 2000000.0,
           "totalSupply": "2000000000000",
@@ -50,8 +50,8 @@
             "decimals": 18,
             "priceUsd": 3000.0
           },
-          "curator": { "address": "0xCurator234567890123456789012345678901234" },
-          "owner": { "address": "0xOwner23456789012345678901234567890123456" },
+          "curator": { "address": "0xDA0DA0DA0DA0DA0DA0DA0DA0DA0DA0DA0DA0DA0D" },
+          "owner": { "address": "0x1C1C1C1C1C1C1C1C1C1C1C1C1C1C1C1C1C1C1C1C" },
           "totalAssets": "100000000000000000000",
           "totalAssetsUsd": 300000.0,
           "totalSupply": "100000000000000000000",
