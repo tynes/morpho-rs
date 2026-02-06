@@ -162,3 +162,139 @@ pub enum SimError {
     #[error("Withdrawals not sorted for vault {vault}")]
     WithdrawalsNotSorted { vault: Address },
 }
+
+impl SimError {
+    /// Returns `true` if the error is retryable.
+    ///
+    /// Simulation errors are deterministic and never retryable — the same inputs
+    /// will always produce the same error.
+    pub fn is_retryable(&self) -> bool {
+        false
+    }
+
+    /// Returns `true` if the error is caused by invalid user input or configuration.
+    ///
+    /// User errors indicate the caller provided invalid parameters (e.g., trying to
+    /// withdraw more than they own, borrowing without sufficient collateral). These
+    /// are distinct from system/state errors like `DivisionByZero` or
+    /// `InvalidInterestAccrual` which indicate a data or logic issue.
+    pub fn is_user_error(&self) -> bool {
+        matches!(
+            self,
+            SimError::InsufficientPosition { .. }
+                | SimError::InsufficientCollateral { .. }
+                | SimError::InsufficientMarketLiquidity { .. }
+                | SimError::NotEnoughLiquidity { .. }
+                | SimError::AllCapsReached { .. }
+                | SimError::EmptyWithdrawals { .. }
+                | SimError::DepositMarketInWithdrawals { .. }
+                | SimError::WithdrawalsNotSorted { .. }
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_primitives::FixedBytes;
+
+    #[test]
+    fn test_is_never_retryable() {
+        let errors = [
+            SimError::DivisionByZero,
+            SimError::EmptySupplyQueue,
+            SimError::InsufficientMarketLiquidity {
+                market_id: FixedBytes::ZERO,
+            },
+            SimError::InvalidInterestAccrual {
+                timestamp: 100,
+                last_update: 200,
+            },
+        ];
+        for err in &errors {
+            assert!(!err.is_retryable());
+        }
+    }
+
+    #[test]
+    fn test_is_user_error_position_errors() {
+        let err = SimError::InsufficientPosition {
+            user: Address::ZERO,
+            market_id: FixedBytes::ZERO,
+        };
+        assert!(err.is_user_error());
+
+        let err = SimError::InsufficientCollateral {
+            user: Address::ZERO,
+            market_id: FixedBytes::ZERO,
+        };
+        assert!(err.is_user_error());
+    }
+
+    #[test]
+    fn test_is_user_error_liquidity_errors() {
+        let err = SimError::InsufficientMarketLiquidity {
+            market_id: FixedBytes::ZERO,
+        };
+        assert!(err.is_user_error());
+
+        let err = SimError::NotEnoughLiquidity {
+            vault: Address::ZERO,
+            remaining: 100,
+        };
+        assert!(err.is_user_error());
+
+        let err = SimError::AllCapsReached {
+            vault: Address::ZERO,
+            remaining: 100,
+        };
+        assert!(err.is_user_error());
+    }
+
+    #[test]
+    fn test_is_user_error_withdrawal_errors() {
+        let err = SimError::EmptyWithdrawals {
+            vault: Address::ZERO,
+        };
+        assert!(err.is_user_error());
+
+        let err = SimError::WithdrawalsNotSorted {
+            vault: Address::ZERO,
+        };
+        assert!(err.is_user_error());
+
+        let err = SimError::DepositMarketInWithdrawals {
+            vault: Address::ZERO,
+            market_id: FixedBytes::ZERO,
+        };
+        assert!(err.is_user_error());
+    }
+
+    #[test]
+    fn test_is_not_user_error_system_errors() {
+        assert!(!SimError::DivisionByZero.is_user_error());
+        assert!(!SimError::EmptySupplyQueue.is_user_error());
+        assert!(
+            !(SimError::InvalidInterestAccrual {
+                timestamp: 100,
+                last_update: 200,
+            })
+            .is_user_error()
+        );
+        assert!(
+            !(SimError::MarketNotFound {
+                market_id: FixedBytes::ZERO,
+            })
+            .is_user_error()
+        );
+        assert!(
+            !(SimError::InvalidApyTarget { target: 0.5 }).is_user_error()
+        );
+        assert!(
+            !(SimError::ConvergenceFailure {
+                max_iterations: 100,
+            })
+            .is_user_error()
+        );
+    }
+}

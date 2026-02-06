@@ -47,11 +47,11 @@
 
 ## Medium Priority - API Improvements
 
-- [ ] No pagination for queries — only first page fetched, large results silently truncated
+- [x] No pagination for queries — auto-pagination with configurable page size, MAX_PAGINATION_PAGES safety limit
 - [x] `MorphoApiClient.execute()` HTTP client coupling (`client.rs:774`) — gave MorphoApiClient its own http_client and config fields
-- [ ] V2 curator filtering is client-side only (not in VaultV2Client API)
+- [x] V2 curator filtering is client-side only — implemented via VaultQueryOptionsV2 and get_vaults_by_curator()
 - [x] Unbounded concurrency in all-chains query (`client.rs:855`) — limited to 5 concurrent requests via `buffer_unordered`
-- [ ] Retry/backoff for API requests — no resilience to transient failures
+- [x] Retry/backoff for API requests — exponential backoff with configurable max_retries and base delay
 
 ## Medium Priority - Code Quality
 
@@ -59,10 +59,10 @@
 - [x] Audit remaining production unwrap calls — replaced all 13 `.unwrap()` in sim/vault.rs with proper `?` error propagation
 - [x] Consolidate V2 adapter conversion functions
 - [x] Reduce user position conversion duplication
-- [ ] Error type consolidation — ApiError, ContractError, SimError are fragmented
-- [ ] Document `sim` feature flag and simulation conversion methods
-- [ ] Document all from_gql() helper methods
-- [ ] Add filter usage examples to docs
+- [x] Error type consolidation — added ErrorCategory enum, is_retryable()/is_user_error()/error_category() across all error types
+- [x] Document `sim` feature flag and simulation conversion methods — expanded lib.rs feature docs and types module docs
+- [x] Document all from_gql() helper methods — added types module doc describing the from_gql pattern
+- [x] Add filter usage examples to docs — added comprehensive query patterns in filters module docs
 
 ## Low Priority - Infrastructure
 
