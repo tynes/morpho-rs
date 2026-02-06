@@ -398,3 +398,350 @@ async fn test_erc4626_client_view_functions() {
 
     println!("\n✓ All Erc4626Client view functions work correctly on both V1 and V2 clients");
 }
+
+/// E2E test verifying that mint() operates on shares, not assets.
+///
+/// This test:
+/// 1. Forks mainnet and prepares to mint shares in a vault with share price > 1
+/// 2. Calls mint() with a specific share amount
+/// 3. Verifies that the exact share amount is received (proving mint uses shares)
+/// 4. Verifies that MORE assets were consumed than shares received
+#[tokio::test]
+#[ignore = "Requires ETH_RPC_URL environment variable"]
+async fn test_mint_uses_shares_not_assets() {
+    let Some(anvil) = spawn_forked_anvil() else {
+        return;
+    };
+
+    // Create a provider for Anvil-specific operations (storage manipulation)
+    let anvil_provider = ProviderBuilder::new().connect_http(anvil.endpoint_url());
+
+    // Create the vault client for ERC20/ERC4626 operations
+    let client = VaultV1TransactionClient::new(&anvil.endpoint(), TEST_PRIVATE_KEY)
+        .expect("Failed to create client");
+    let test_account = client.signer_address();
+
+    // Fund test account with 10,000 USDC (USDC has 6 decimals)
+    let fund_amount = U256::from(10_000_000_000u64); // 10,000 USDC
+    fund_account_with_usdc(&anvil_provider, test_account, fund_amount).await;
+
+    // Calculate how many shares we want to mint
+    // We'll mint a specific share amount and verify we get exactly that many shares
+    let shares_to_mint = U256::from(500_000_000u64); // 500 shares (scaled)
+
+    // Preview how many assets will be needed to mint these shares
+    let assets_needed = client
+        .preview_mint(STEAKHOUSE_USDC_VAULT, shares_to_mint)
+        .await
+        .expect("Failed to preview mint");
+
+    println!("Shares to mint: {}", shares_to_mint);
+    println!("Assets needed (preview): {}", assets_needed);
+
+    // Approve vault to spend USDC (approve more than needed to be safe)
+    let _approve_receipt = client
+        .approve(USDC_ADDRESS, STEAKHOUSE_USDC_VAULT, assets_needed * U256::from(2))
+        .send()
+        .await
+        .expect("Failed to approve");
+
+    // Get balances before mint
+    let usdc_before = client
+        .get_balance(USDC_ADDRESS, test_account)
+        .await
+        .expect("Failed to get USDC balance before");
+    let shares_before = client
+        .get_balance(STEAKHOUSE_USDC_VAULT, test_account)
+        .await
+        .expect("Failed to get shares before");
+
+    // Mint shares
+    let mint_receipt = client
+        .mint(STEAKHOUSE_USDC_VAULT, shares_to_mint, test_account)
+        .send()
+        .await
+        .expect("Failed to mint");
+
+    assert!(mint_receipt.status(), "Mint transaction failed");
+
+    // Get balances after mint
+    let usdc_after = client
+        .get_balance(USDC_ADDRESS, test_account)
+        .await
+        .expect("Failed to get USDC balance after");
+    let shares_after = client
+        .get_balance(STEAKHOUSE_USDC_VAULT, test_account)
+        .await
+        .expect("Failed to get shares after");
+
+    // Calculate actual amounts
+    let shares_received = shares_after - shares_before;
+    let assets_consumed = usdc_before - usdc_after;
+
+    println!("Shares received: {}", shares_received);
+    println!("Assets consumed: {}", assets_consumed);
+
+    // KEY ASSERTION: mint() should return exactly the requested SHARE amount
+    // This proves that the mint function parameter is shares, not assets
+    assert_eq!(
+        shares_received, shares_to_mint,
+        "mint() should mint exactly the requested share amount"
+    );
+
+    // Additional assertion: more assets should be consumed than shares received
+    // because share price > 1 (you pay more assets per share)
+    assert!(
+        assets_consumed > shares_received,
+        "Expected assets consumed ({}) > shares received ({}) because share price > 1",
+        assets_consumed,
+        shares_received
+    );
+
+    println!("\n✓ Test passed: mint() operates on SHARES, not assets");
+    println!(
+        "  - Requested {} shares, received exactly {} shares",
+        shares_to_mint, shares_received
+    );
+    println!(
+        "  - Consumed {} assets (more than shares due to share price > 1)",
+        assets_consumed
+    );
+}
+
+/// E2E test verifying that redeem() operates on shares, not assets.
+///
+/// This test:
+/// 1. Forks mainnet and deposits into a vault with share price > 1
+/// 2. Calls redeem() with a specific share amount
+/// 3. Verifies that the exact share amount is burned (proving redeem uses shares)
+#[tokio::test]
+#[ignore = "Requires ETH_RPC_URL environment variable"]
+async fn test_redeem_uses_shares_not_assets() {
+    let Some(anvil) = spawn_forked_anvil() else {
+        return;
+    };
+
+    // Create a provider for Anvil-specific operations (storage manipulation)
+    let anvil_provider = ProviderBuilder::new().connect_http(anvil.endpoint_url());
+
+    // Create the vault client for ERC20/ERC4626 operations
+    let client = VaultV1TransactionClient::new(&anvil.endpoint(), TEST_PRIVATE_KEY)
+        .expect("Failed to create client");
+    let test_account = client.signer_address();
+
+    // Fund test account with 10,000 USDC (USDC has 6 decimals)
+    let deposit_amount = U256::from(10_000_000_000u64); // 10,000 USDC
+    fund_account_with_usdc(&anvil_provider, test_account, deposit_amount).await;
+
+    // Approve and deposit to get shares
+    let _approve_receipt = client
+        .approve(USDC_ADDRESS, STEAKHOUSE_USDC_VAULT, deposit_amount)
+        .send()
+        .await
+        .expect("Failed to approve");
+
+    let deposit_receipt = client
+        .deposit(STEAKHOUSE_USDC_VAULT, deposit_amount, test_account)
+        .send()
+        .await
+        .expect("Failed to deposit");
+
+    assert!(deposit_receipt.status(), "Deposit transaction failed");
+
+    // Get shares balance after deposit
+    let shares_after_deposit = client
+        .get_balance(STEAKHOUSE_USDC_VAULT, test_account)
+        .await
+        .expect("Failed to get shares balance after deposit");
+
+    println!("Deposited {} USDC, received {} shares", deposit_amount, shares_after_deposit);
+
+    // Redeem a specific number of shares (half of what we have)
+    let shares_to_redeem = shares_after_deposit / U256::from(2);
+
+    // Preview how many assets we'll receive
+    let assets_preview = client
+        .preview_redeem(STEAKHOUSE_USDC_VAULT, shares_to_redeem)
+        .await
+        .expect("Failed to preview redeem");
+
+    println!("Shares to redeem: {}", shares_to_redeem);
+    println!("Assets expected (preview): {}", assets_preview);
+
+    // Get balances before redeem
+    let usdc_before = client
+        .get_balance(USDC_ADDRESS, test_account)
+        .await
+        .expect("Failed to get USDC balance before");
+    let shares_before = client
+        .get_balance(STEAKHOUSE_USDC_VAULT, test_account)
+        .await
+        .expect("Failed to get shares before");
+
+    // Redeem shares
+    let redeem_receipt = client
+        .redeem(STEAKHOUSE_USDC_VAULT, shares_to_redeem, test_account, test_account)
+        .send()
+        .await
+        .expect("Failed to redeem");
+
+    assert!(redeem_receipt.status(), "Redeem transaction failed");
+
+    // Get balances after redeem
+    let usdc_after = client
+        .get_balance(USDC_ADDRESS, test_account)
+        .await
+        .expect("Failed to get USDC balance after");
+    let shares_after = client
+        .get_balance(STEAKHOUSE_USDC_VAULT, test_account)
+        .await
+        .expect("Failed to get shares after");
+
+    // Calculate actual amounts
+    let shares_burned = shares_before - shares_after;
+    let assets_received = usdc_after - usdc_before;
+
+    println!("Shares burned: {}", shares_burned);
+    println!("Assets received: {}", assets_received);
+
+    // KEY ASSERTION: redeem() should burn exactly the requested SHARE amount
+    // This proves that the redeem function parameter is shares, not assets
+    assert_eq!(
+        shares_burned, shares_to_redeem,
+        "redeem() should burn exactly the requested share amount"
+    );
+
+    // Additional assertion: more assets should be received than shares burned
+    // because share price > 1 (each share is worth more than 1 asset)
+    assert!(
+        assets_received > shares_burned,
+        "Expected assets received ({}) > shares burned ({}) because share price > 1",
+        assets_received,
+        shares_burned
+    );
+
+    println!("\n✓ Test passed: redeem() operates on SHARES, not assets");
+    println!(
+        "  - Requested {} shares to redeem, burned exactly {} shares",
+        shares_to_redeem, shares_burned
+    );
+    println!(
+        "  - Received {} assets (more than shares due to share price > 1)",
+        assets_received
+    );
+}
+
+/// Test that approve_if_needed skips approval when sufficient allowance exists.
+#[tokio::test]
+#[ignore = "Requires ETH_RPC_URL environment variable"]
+async fn test_approve_if_needed_skips_when_sufficient() {
+    let Some(anvil) = spawn_forked_anvil() else {
+        return;
+    };
+
+    // Create the vault client
+    let client = VaultV1TransactionClient::new(&anvil.endpoint(), TEST_PRIVATE_KEY)
+        .expect("Failed to create client");
+
+    let large_amount = U256::from(10_000_000_000u64); // 10,000 USDC
+    let small_amount = U256::from(1_000_000_000u64); // 1,000 USDC
+
+    // First, approve a large amount
+    let initial_approval = client
+        .approve(USDC_ADDRESS, STEAKHOUSE_USDC_VAULT, large_amount)
+        .send()
+        .await
+        .expect("Failed to approve initial amount");
+
+    assert!(initial_approval.status(), "Initial approval failed");
+
+    // Verify allowance is set
+    let allowance = client
+        .get_allowance(USDC_ADDRESS, client.signer_address(), STEAKHOUSE_USDC_VAULT)
+        .await
+        .expect("Failed to get allowance");
+
+    assert_eq!(allowance, large_amount, "Allowance should be set to large amount");
+
+    // Now call approve_if_needed with a smaller amount
+    let result = client
+        .approve_if_needed(USDC_ADDRESS, STEAKHOUSE_USDC_VAULT, small_amount)
+        .await
+        .expect("approve_if_needed failed");
+
+    // Should return None because sufficient allowance already exists
+    assert!(
+        result.is_none(),
+        "approve_if_needed should return None when sufficient allowance exists"
+    );
+
+    // Verify allowance hasn't changed
+    let allowance_after = client
+        .get_allowance(USDC_ADDRESS, client.signer_address(), STEAKHOUSE_USDC_VAULT)
+        .await
+        .expect("Failed to get allowance after");
+
+    assert_eq!(
+        allowance_after, large_amount,
+        "Allowance should remain unchanged"
+    );
+
+    println!("✓ Test passed: approve_if_needed correctly skips when sufficient allowance exists");
+}
+
+/// Test that approve_if_needed approves when insufficient allowance exists.
+#[tokio::test]
+#[ignore = "Requires ETH_RPC_URL environment variable"]
+async fn test_approve_if_needed_approves_when_insufficient() {
+    let Some(anvil) = spawn_forked_anvil() else {
+        return;
+    };
+
+    // Create the vault client
+    let client = VaultV1TransactionClient::new(&anvil.endpoint(), TEST_PRIVATE_KEY)
+        .expect("Failed to create client");
+
+    let requested_amount = U256::from(1_000_000_000u64); // 1,000 USDC
+
+    // Verify initial allowance is zero (fresh anvil fork)
+    let initial_allowance = client
+        .get_allowance(USDC_ADDRESS, client.signer_address(), STEAKHOUSE_USDC_VAULT)
+        .await
+        .expect("Failed to get initial allowance");
+
+    assert_eq!(initial_allowance, U256::ZERO, "Initial allowance should be zero");
+
+    // Call approve_if_needed - should return Some since allowance is insufficient
+    let result = client
+        .approve_if_needed(USDC_ADDRESS, STEAKHOUSE_USDC_VAULT, requested_amount)
+        .await
+        .expect("approve_if_needed failed");
+
+    // Should return Some(PreparedCall) because approval is needed
+    assert!(
+        result.is_some(),
+        "approve_if_needed should return Some when allowance is insufficient"
+    );
+
+    // Get the prepared call and verify it targets the token
+    let prepared = result.unwrap();
+    assert_eq!(prepared.to(), USDC_ADDRESS, "Approval should target the token address");
+    assert_eq!(prepared.value(), U256::ZERO, "Approval should not send ETH");
+
+    // Send the approval
+    let receipt = prepared.send().await.expect("Failed to send approval");
+    assert!(receipt.status(), "Approval transaction failed");
+
+    // Verify allowance is now set
+    let allowance_after = client
+        .get_allowance(USDC_ADDRESS, client.signer_address(), STEAKHOUSE_USDC_VAULT)
+        .await
+        .expect("Failed to get allowance after");
+
+    assert_eq!(
+        allowance_after, requested_amount,
+        "Allowance should be set to requested amount"
+    );
+
+    println!("✓ Test passed: approve_if_needed correctly approves when insufficient allowance");
+}

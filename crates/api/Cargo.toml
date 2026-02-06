@@ -27,3 +27,5 @@ morpho-rs-sim = { version = "0.6.0", path = "../sim", optional = true }
 
 [dev-dependencies]
 wiremock = "0.6"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+alloy = { version = "1.4", features = ["node-bindings", "provider-anvil-api"] }
