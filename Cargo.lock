@@ -2726,6 +2726,8 @@ name = "morpho-rs-sim"
 version = "0.6.0"
 dependencies = [
  "alloy-primitives",
+ "serde",
+ "serde_json",
  "thiserror 2.0.18",
 ]
 

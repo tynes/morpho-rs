@@ -262,6 +262,21 @@ println!("New rate at target: {}", result.end_rate_at_target);
 | `position.withdrawable_collateral()` | Get withdrawable collateral amount |
 | `position.get_capacities()` | Get all operation capacity limits |
 
+### Liquidation
+
+Methods on `Market`, rounded like `Morpho.liquidate`. All except `liquidate` return `None` when the price is unknown.
+
+| Function | Description |
+|----------|-------------|
+| `get_liquidation_incentive_factor()` | Liquidation bonus `min(1.15, 1 / (1 - 0.3 * (1 - lltv)))` |
+| `get_seizable_collateral()` | Most collateral a liquidation of the whole debt can seize |
+| `get_liquidation_seized_assets()` | Collateral seized for given repaid shares |
+| `get_liquidation_repaid_shares()` | Borrow shares repaid for given seized collateral |
+| `get_liquidation_repaid_assets()` | Loan assets paid for given repaid shares |
+| `liquidate()` | State change of one liquidation, including bad debt realisation; returns the new market, the remaining `BorrowPosition` and the `LiquidationResult` (the `Liquidate` event amounts) |
+
+`liquidate()` does not accrue interest; call `accrue_interest()` first, as the contract does. Chaining the returned markets lets you compute several liquidations in the same market in a row.
+
 ### IRM Module
 
 | Function | Description |
@@ -303,6 +318,7 @@ Common errors:
 - `SimError::InsufficientCollateral` - Borrow would make position unhealthy
 - `SimError::AllCapsReached` - Vault deposit exceeds all market caps
 - `SimError::InvalidInterestAccrual` - Timestamp is before last update
+- `SimError::HealthyPosition`, `SimError::InconsistentLiquidationInput`, `SimError::LiquidationExceedsPosition` - `liquidate()` would revert
 
 ## Constants
 
@@ -321,6 +337,12 @@ Run the test suite:
 
 ```bash
 cargo test -p morpho-rs-sim
+```
+
+`tests/vectors.rs` checks the liquidation math against difference vectors from [`@morpho-org/blue-sdk`](https://www.npmjs.com/package/@morpho-org/blue-sdk), stored in `tests/vectors/` so the tests run without Node. To regenerate them from the repository root:
+
+```bash
+cd scripts/vectors && npm install && node generate.mjs
 ```
 
 ## License

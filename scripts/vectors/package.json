@@ -1,0 +1,14 @@
+{
+  "name": "morpho-rs-sim-vectors",
+  "private": true,
+  "type": "module",
+  "description": "Generates difference vectors for morpho-rs-sim from @morpho-org/blue-sdk",
+  "scripts": {
+    "generate": "node generate.mjs"
+  },
+  "dependencies": {
+    "@morpho-org/blue-sdk": "8.3.0",
+    "@morpho-org/morpho-ts": "4.4.0",
+    "viem": "2.58.1"
+  }
+}

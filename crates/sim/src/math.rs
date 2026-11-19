@@ -10,7 +10,7 @@
 //!
 //! ```rust
 //! use morpho_rs_sim::WAD;
-//! use alloy_primitives::U256;
+//! use alloy_primitives::{U256, U512};
 //!
 //! // Representing values
 //! let one = WAD;                          // 1.0
@@ -42,7 +42,7 @@
 //! - Use `_down` when calculating what users receive (conservative)
 //! - Use `_up` when calculating what users owe (protective for protocol)
 
-use alloy_primitives::U256;
+use alloy_primitives::{U256, U512};
 
 /// WAD constant: 10^18, used for fixed-point arithmetic with 18 decimals
 pub const WAD: U256 = U256::from_limbs([1_000_000_000_000_000_000, 0, 0, 0]);
@@ -100,40 +100,36 @@ pub fn zero_floor_sub(a: U256, b: U256) -> U256 {
 
 /// Multiply two numbers and divide by a denominator, rounding down
 ///
-/// Returns `(x * y) / denominator`
+/// Returns `(x * y) / denominator`, computed without intermediate overflow; returns zero for a
+/// zero denominator and saturates at `U256::MAX`.
 #[inline]
 pub fn mul_div_down(x: U256, y: U256, denominator: U256) -> U256 {
-    if denominator.is_zero() {
-        return U256::ZERO; // Avoid panic, caller should handle
-    }
-    (x * y) / denominator
+    mul_div(x, y, denominator, RoundingDirection::Down)
 }
 
 /// Multiply two numbers and divide by a denominator, rounding up
 ///
-/// Returns `ceil((x * y) / denominator)`
+/// Returns `ceil((x * y) / denominator)`, computed without intermediate overflow; returns zero
+/// for a zero denominator and saturates at `U256::MAX`.
 #[inline]
 pub fn mul_div_up(x: U256, y: U256, denominator: U256) -> U256 {
-    if denominator.is_zero() {
-        return U256::ZERO;
-    }
-    let product = x * y;
-    let remainder = product % denominator;
-    let result = product / denominator;
-    if remainder > U256::ZERO {
-        result + U256::from(1)
-    } else {
-        result
-    }
+    mul_div(x, y, denominator, RoundingDirection::Up)
 }
 
 /// Multiply two numbers and divide by a denominator with specified rounding
 #[inline]
 pub fn mul_div(x: U256, y: U256, denominator: U256, rounding: RoundingDirection) -> U256 {
-    match rounding {
-        RoundingDirection::Down => mul_div_down(x, y, denominator),
-        RoundingDirection::Up => mul_div_up(x, y, denominator),
+    if denominator.is_zero() {
+        return U256::ZERO;
     }
+    let product = U512::from(x) * U512::from(y);
+    let denominator = U512::from(denominator);
+    let quotient = product / denominator;
+    let rounded = match rounding {
+        RoundingDirection::Up if !(product % denominator).is_zero() => quotient + U512::from(1),
+        _ => quotient,
+    };
+    rounded.saturating_to()
 }
 
 /// WAD-based multiplication, rounded down
@@ -466,6 +462,14 @@ mod tests {
 
         let back = rate_to_f64(wad_value);
         assert!((back - value).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_mul_div_does_not_overflow_intermediate_product() {
+        let max = U256::MAX;
+        assert_eq!(mul_div_down(max, max, max), max);
+        assert_eq!(mul_div_up(max, U256::from(3), U256::from(4)), max - (max >> 2));
+        assert_eq!(mul_div_down(max, U256::from(2), U256::from(1)), U256::MAX);
     }
 
     #[test]

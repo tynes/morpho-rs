@@ -161,6 +161,18 @@ pub enum SimError {
     /// Withdrawals not sorted
     #[error("Withdrawals not sorted for vault {vault}")]
     WithdrawalsNotSorted { vault: Address },
+
+    /// Liquidation needs exactly one of seized assets and repaid shares
+    #[error("Inconsistent liquidation input in market {market_id}")]
+    InconsistentLiquidationInput { market_id: MarketId },
+
+    /// Position is healthy and cannot be liquidated
+    #[error("Position in market {market_id} is healthy")]
+    HealthyPosition { market_id: MarketId },
+
+    /// Liquidation takes more collateral or shares than the position or market holds
+    #[error("Liquidation exceeds the position or market totals in market {market_id}")]
+    LiquidationExceedsPosition { market_id: MarketId },
 }
 
 impl SimError {
@@ -189,6 +201,9 @@ impl SimError {
                 | SimError::EmptyWithdrawals { .. }
                 | SimError::DepositMarketInWithdrawals { .. }
                 | SimError::WithdrawalsNotSorted { .. }
+                | SimError::InconsistentLiquidationInput { .. }
+                | SimError::HealthyPosition { .. }
+                | SimError::LiquidationExceedsPosition { .. }
         )
     }
 }

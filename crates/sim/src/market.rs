@@ -59,12 +59,8 @@ pub const MAX_LIQUIDATION_INCENTIVE_FACTOR: U256 =
     U256::from_limbs([1_150_000_000_000_000_000, 0, 0, 0]);
 
 /// Oracle price scale (1e36)
-pub const ORACLE_PRICE_SCALE: U256 = U256::from_limbs([
-    0xC097CE7BC90715B3,
-    0x4B9F,
-    0,
-    0,
-]); // 10^36
+pub const ORACLE_PRICE_SCALE: U256 =
+    U256::from_limbs([0xB34B_9F10_0000_0000, 0x00C0_97CE_7BC9_0715, 0, 0]);
 
 /// Represents a lending market on Morpho Blue.
 #[derive(Debug, Clone)]
@@ -621,6 +617,102 @@ impl Market {
         Some(mul_div_down(value_with_incentive, ORACLE_PRICE_SCALE, price))
     }
 
+    /// Returns the borrow shares repaid when seizing `seized_assets`, rounded like the
+    /// `seizedAssets > 0` branch of `Morpho.liquidate`.
+    pub fn get_liquidation_repaid_shares(&self, seized_assets: U256) -> Option<U256> {
+        let price = self.price?;
+        let seized_quoted = mul_div_up(seized_assets, price, ORACLE_PRICE_SCALE);
+        let repaid_assets = w_div_up(seized_quoted, self.get_liquidation_incentive_factor());
+        Some(self.to_borrow_shares(repaid_assets, RoundingDirection::Up))
+    }
+
+    /// Returns the loan assets a liquidator pays for `repaid_shares`.
+    pub fn get_liquidation_repaid_assets(&self, repaid_shares: U256) -> U256 {
+        self.to_borrow_assets(repaid_shares, RoundingDirection::Up)
+    }
+
+    /// Applies `Morpho.liquidate` to a position, including the realisation of bad debt when no
+    /// collateral is left. Exactly one of `seized_assets` and `repaid_shares` must be non-zero.
+    ///
+    /// Interest is not accrued: call [`Market::accrue_interest`] first, as the contract does.
+    pub fn liquidate(
+        &self,
+        collateral: U256,
+        borrow_shares: U256,
+        seized_assets: U256,
+        repaid_shares: U256,
+    ) -> Result<(Market, BorrowPosition, LiquidationResult), SimError> {
+        let market_id = self.id;
+        if seized_assets.is_zero() == repaid_shares.is_zero() {
+            return Err(SimError::InconsistentLiquidationInput { market_id });
+        }
+        let price = self.price.ok_or(SimError::UnknownOraclePrice { market_id })?;
+        if borrow_shares.is_zero() || self.is_healthy(collateral, borrow_shares) == Some(true) {
+            return Err(SimError::HealthyPosition { market_id });
+        }
+
+        let (seized_assets, repaid_shares) = if seized_assets.is_zero() {
+            if price.is_zero() {
+                return Err(SimError::DivisionByZero);
+            }
+            let seized = self
+                .get_liquidation_seized_assets(repaid_shares)
+                .ok_or(SimError::UnknownOraclePrice { market_id })?;
+            (seized, repaid_shares)
+        } else {
+            let repaid = self
+                .get_liquidation_repaid_shares(seized_assets)
+                .ok_or(SimError::UnknownOraclePrice { market_id })?;
+            (seized_assets, repaid)
+        };
+        let repaid_assets = self.get_liquidation_repaid_assets(repaid_shares);
+
+        let exceeds = || SimError::LiquidationExceedsPosition { market_id };
+        let mut market = self.clone();
+        let mut position = BorrowPosition {
+            collateral: collateral.checked_sub(seized_assets).ok_or_else(exceeds)?,
+            borrow_shares: borrow_shares.checked_sub(repaid_shares).ok_or_else(exceeds)?,
+        };
+        market.total_borrow_shares = market
+            .total_borrow_shares
+            .checked_sub(repaid_shares)
+            .ok_or_else(exceeds)?;
+        market.total_borrow_assets = zero_floor_sub(market.total_borrow_assets, repaid_assets);
+
+        let (bad_debt_assets, bad_debt_shares) = if position.collateral.is_zero() {
+            let shares = position.borrow_shares;
+            let assets = math::min(
+                market.total_borrow_assets,
+                market.to_borrow_assets(shares, RoundingDirection::Up),
+            );
+            market.total_borrow_assets -= assets;
+            market.total_supply_assets = market
+                .total_supply_assets
+                .checked_sub(assets)
+                .ok_or_else(exceeds)?;
+            market.total_borrow_shares = market
+                .total_borrow_shares
+                .checked_sub(shares)
+                .ok_or_else(exceeds)?;
+            position.borrow_shares = U256::ZERO;
+            (assets, shares)
+        } else {
+            (U256::ZERO, U256::ZERO)
+        };
+
+        Ok((
+            market,
+            position,
+            LiquidationResult {
+                repaid_assets,
+                repaid_shares,
+                seized_assets,
+                bad_debt_assets,
+                bad_debt_shares,
+            },
+        ))
+    }
+
     /// Check if a position is healthy
     pub fn is_healthy(&self, collateral: U256, borrow_shares: U256) -> Option<bool> {
         let max_borrow = self.get_max_borrow_assets(collateral)?;
@@ -654,19 +746,19 @@ impl Market {
         Some(w_div_up(borrow_assets, collateral_value))
     }
 
-    /// Returns the liquidation price of a position
+    /// Returns the collateral price (scaled by `ORACLE_PRICE_SCALE`) at which the position becomes
+    /// liquidatable; `None` without debt, `U256::MAX` without collateral or LLTV.
     pub fn get_liquidation_price(&self, collateral: U256, borrow_shares: U256) -> Option<U256> {
         if borrow_shares.is_zero() || self.total_borrow_shares.is_zero() {
             return None;
         }
-
-        let collateral_power = w_mul_down(collateral, self.lltv);
-        if collateral_power.is_zero() {
+        if collateral.is_zero() || self.lltv.is_zero() {
             return Some(U256::MAX);
         }
 
         let borrow_assets = self.to_borrow_assets(borrow_shares, RoundingDirection::Up);
-        Some(mul_div_up(borrow_assets, ORACLE_PRICE_SCALE, collateral_power))
+        let min_collateral_value = w_div_up(borrow_assets, self.lltv);
+        Some(mul_div_up(min_collateral_value, ORACLE_PRICE_SCALE, collateral))
     }
 
     /// Returns the amount of collateral that can be withdrawn while staying healthy
@@ -700,6 +792,23 @@ impl Market {
         let max_seizable = self.get_liquidation_seized_assets(borrow_shares)?;
         Some(math::min(collateral, max_seizable))
     }
+}
+
+/// Collateral and debt of a borrower, as stored by Morpho Blue.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BorrowPosition {
+    pub collateral: U256,
+    pub borrow_shares: U256,
+}
+
+/// Amounts of one liquidation, as emitted by the `Liquidate` event.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct LiquidationResult {
+    pub repaid_assets: U256,
+    pub repaid_shares: U256,
+    pub seized_assets: U256,
+    pub bad_debt_assets: U256,
+    pub bad_debt_shares: U256,
 }
 
 /// Internal struct for accrual rate calculation results
@@ -1504,6 +1613,79 @@ mod tests {
         // Zero supply with non-zero borrow should be MAX
         let util2 = get_utilization(U256::ZERO, U256::from(1));
         assert_eq!(util2, U256::MAX);
+    }
+
+    #[test]
+    fn test_oracle_price_scale_is_ten_pow_36() {
+        assert_eq!(ORACLE_PRICE_SCALE, U256::from(10u64).pow(U256::from(36)));
+    }
+
+    #[test]
+    fn test_liquidate_realises_bad_debt() {
+        let market = create_test_market_with_oracle();
+        let collateral = U256::from(100) * WAD;
+        let borrow_shares = U256::from(95) * WAD;
+
+        let (after, position, result) = market
+            .liquidate(collateral, borrow_shares, collateral, U256::ZERO)
+            .unwrap();
+
+        assert_eq!(position, BorrowPosition::default());
+        assert_eq!(result.seized_assets, collateral);
+        assert!(!result.bad_debt_shares.is_zero());
+        assert_eq!(result.repaid_shares + result.bad_debt_shares, borrow_shares);
+        assert_eq!(
+            after.total_borrow_shares,
+            market.total_borrow_shares - borrow_shares
+        );
+        assert_eq!(
+            after.total_supply_assets,
+            market.total_supply_assets - result.bad_debt_assets
+        );
+        assert_eq!(
+            after.total_borrow_assets,
+            market.total_borrow_assets - result.repaid_assets - result.bad_debt_assets
+        );
+    }
+
+    #[test]
+    fn test_liquidate_by_shares_matches_seized_assets() {
+        let market = create_test_market_with_oracle();
+        let repaid_shares = U256::from(10) * WAD;
+
+        let (_, position, result) = market
+            .liquidate(U256::from(100) * WAD, U256::from(90) * WAD, U256::ZERO, repaid_shares)
+            .unwrap();
+
+        assert_eq!(
+            Some(result.seized_assets),
+            market.get_liquidation_seized_assets(repaid_shares)
+        );
+        assert_eq!(
+            result.repaid_assets,
+            market.get_liquidation_repaid_assets(repaid_shares)
+        );
+        assert_eq!(position.borrow_shares, U256::from(80) * WAD);
+        assert!(result.bad_debt_shares.is_zero());
+    }
+
+    #[test]
+    fn test_liquidate_rejects_invalid_input() {
+        let market = create_test_market_with_oracle();
+        let collateral = U256::from(100) * WAD;
+
+        assert!(matches!(
+            market.liquidate(collateral, U256::from(50) * WAD, U256::from(1), U256::ZERO),
+            Err(SimError::HealthyPosition { .. })
+        ));
+        assert!(matches!(
+            market.liquidate(collateral, U256::from(90) * WAD, U256::ZERO, U256::ZERO),
+            Err(SimError::InconsistentLiquidationInput { .. })
+        ));
+        assert!(matches!(
+            market.liquidate(collateral, U256::from(90) * WAD, collateral + U256::from(1), U256::ZERO),
+            Err(SimError::LiquidationExceedsPosition { .. })
+        ));
     }
 
     #[test]

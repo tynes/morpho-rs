@@ -114,7 +114,7 @@ pub use error::{MarketId, SimError};
 pub use market::{
     borrow_apy_impact, find_best_market_for_supply, get_liquidation_incentive_factor,
     get_utilization, rank_markets_by_borrow_apy, rank_markets_by_supply_apy, supply_apy_impact,
-    BorrowApyImpact, Market, MarketRanking, SupplyApyImpact,
+    BorrowApyImpact, BorrowPosition, LiquidationResult, Market, MarketRanking, SupplyApyImpact,
     LIQUIDATION_CURSOR, MAX_LIQUIDATION_INCENTIVE_FACTOR, ORACLE_PRICE_SCALE,
 };
 
